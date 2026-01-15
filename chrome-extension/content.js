@@ -13,6 +13,9 @@
   // スマホアプリのURL（HTTPSが必要！ngrokを使用推奨）
   const SMARTPHONE_APP_URL = 'https://nikita-unmajestic-reciprocatively.ngrok-free.dev';
 
+  let isLocked = true;
+  let observer = null;
+
   // ============================================
   // ユーティリティ関数
   // ============================================
@@ -32,6 +35,39 @@
       sessionStorage.setItem('toll_session_id', sessionId);
     }
     return sessionId;
+  }
+
+  // 強制停止
+  function forcePause() {
+    if (!isLocked) return;
+    const media = document.querySelectorAll('video, audio');
+    media.forEach(m => {
+      if (!m.paused) {
+        m.pause();
+        debugLog('Video/Audio forced to pause.');
+      }
+    });
+  }
+
+  // ビデオ要素の監視
+  function startVideoMonitor() {
+    if (observer) return;
+    observer = new MutationObserver(() => {
+      forcePause();
+    });
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true
+    });
+    debugLog('Video monitor started.');
+  }
+
+  function stopVideoMonitor() {
+    if (observer) {
+      observer.disconnect();
+      observer = null;
+      debugLog('Video monitor stopped.');
+    }
   }
 
   // ============================================
@@ -164,6 +200,8 @@
   function unlockPage(overlay) {
     console.log('[THE TOLL] アンロック実行！');
     overlay.classList.add('unlocking');
+    isLocked = false;
+    stopVideoMonitor();
     setTimeout(() => {
       overlay.remove();
       sessionStorage.removeItem('toll_session_id');
@@ -226,6 +264,7 @@
 
     // 2. ポーリングループ
     const pollInterval = setInterval(async () => {
+      forcePause(); // ブロック中は毎秒チェック
       try {
         const response = await fetch(
           `${SUPABASE_URL}/rest/v1/squat_sessions?id=eq.${sessionId}&select=unlocked`,
@@ -267,7 +306,12 @@
     const sessionId = getOrCreateSessionId();
     console.log('[THE TOLL] セッションID:', sessionId);
     
+    
     const overlay = createOverlay(sessionId);
+    
+    // ビデオ停止と監視開始
+    forcePause();
+    startVideoMonitor();
     
     // ポーリングでSupabaseを監視
     startPolling(sessionId, overlay);
