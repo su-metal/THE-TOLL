@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>THE TOLL - スクワットチャレンジ</title>
+  <link rel="stylesheet" href="style.css">
+  <!-- MediaPipe Pose -->
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js" crossorigin="anonymous"></script>
+  <!-- Supabase -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+</head>
+<body>
+  <div id="app">
+    <!-- セッションID入力画面 -->
+    <div id="session-screen" class="screen active">
+      <div class="container">
+        <div class="logo">🏋️</div>
+        <h1>THE TOLL</h1>
+        <p class="subtitle">スクワットでPCをアンロック</p>
+        
+        <div class="input-group">
+          <label for="session-input">セッションIDを入力</label>
+          <input type="text" id="session-input" placeholder="XXXX-XXXX" maxlength="9" autocomplete="off">
+        </div>
+        
+        <button id="start-btn" class="primary-btn">
+          <span>🎬 チャレンジ開始</span>
+        </button>
+        
+        <p class="hint">PCに表示されているセッションIDを入力してください</p>
+      </div>
+    </div>
+
+    <!-- スクワット画面 -->
+    <div id="squat-screen" class="screen">
+      <div class="camera-container">
+        <video id="camera" autoplay muted playsinline></video>
+        <canvas id="pose-canvas"></canvas>
+        
+        <!-- オーバーレイUI -->
+        <div class="overlay-ui">
+          <div class="counter-display">
+            <span class="count" id="squat-count">0</span>
+            <span class="total">/ 5</span>
+          </div>
+          
+          <div class="status-indicator" id="status">
+            <span class="icon">🔴</span>
+            <span class="text">準備中...</span>
+          </div>
+        </div>
+        
+        <!-- ガイドライン -->
+        <div class="guide-overlay" id="guide">
+          <div class="guide-text">
+            全身が映るように<br>立ってください
+          </div>
+        </div>
+      </div>
+      
+      <div class="bottom-panel">
+        <div class="session-info">
+          セッション: <span id="current-session">-</span>
+        </div>
+        <div class="squat-hint" id="squat-hint">
+          しっかり膝を曲げてスクワットしてください
+        </div>
+      </div>
+    </div>
+
+    <!-- 完了画面 -->
+    <div id="complete-screen" class="screen">
+      <div class="container">
+        <div class="success-animation">
+          <div class="checkmark">✅</div>
+        </div>
+        <h1>チャレンジ完了！</h1>
+        <p class="subtitle">スクワット5回達成</p>
+        
+        <button id="unlock-btn" class="primary-btn success">
+          <span>🔓 PCをアンロック</span>
+        </button>
+        
+        <p class="status-text" id="unlock-status"></p>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

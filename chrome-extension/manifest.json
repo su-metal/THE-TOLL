@@ -1,0 +1,25 @@
+{
+  "manifest_version": 3,
+  "name": "THE TOLL - スクワットでアンロック",
+  "version": "1.0.1",
+  "description": "YouTubeをブロックし、スクワット5回でアンロックするChrome拡張機能",
+  "permissions": [
+    "storage"
+  ],
+  "host_permissions": [
+    "*://*.youtube.com/*",
+    "https://*.supabase.co/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": ["*://*.youtube.com/*"],
+      "js": ["lib/qrcode.min.js", "content.js"],
+      "css": ["overlay.css"],
+      "run_at": "document_end"
+    }
+  ],
+  "icons": {
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
+}

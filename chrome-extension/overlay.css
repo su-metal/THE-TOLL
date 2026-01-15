@@ -1,0 +1,163 @@
+/* THE TOLL - ブロックオーバーレイのスタイル */
+
+#toll-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+  z-index: 2147483647;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  font-family: 'Segoe UI', 'Hiragino Sans', 'Meiryo', sans-serif;
+  color: #ffffff;
+  overflow: hidden;
+}
+
+#toll-overlay::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: radial-gradient(circle, rgba(233, 69, 96, 0.1) 0%, transparent 50%);
+  animation: pulse 4s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { transform: scale(1); opacity: 0.5; }
+  50% { transform: scale(1.1); opacity: 0.8; }
+}
+
+#toll-overlay .toll-container {
+  position: relative;
+  z-index: 1;
+  text-align: center;
+  padding: 40px;
+  max-width: 500px;
+}
+
+#toll-overlay .toll-icon {
+  font-size: 80px;
+  margin-bottom: 20px;
+  animation: bounce 2s ease-in-out infinite;
+}
+
+@keyframes bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-15px); }
+}
+
+#toll-overlay h1 {
+  font-size: 2.5rem;
+  margin: 0 0 10px 0;
+  background: linear-gradient(90deg, #e94560, #ff6b6b);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+#toll-overlay .toll-subtitle {
+  font-size: 1.2rem;
+  color: #a0a0a0;
+  margin-bottom: 30px;
+}
+
+#toll-overlay .toll-instruction {
+  font-size: 1.5rem;
+  color: #ffffff;
+  margin-bottom: 30px;
+  padding: 20px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 15px;
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+#toll-overlay .toll-instruction strong {
+  color: #e94560;
+  font-size: 2rem;
+}
+
+#toll-overlay .toll-qr-section {
+  margin: 30px 0;
+}
+
+#toll-overlay .toll-qr-label {
+  font-size: 1rem;
+  color: #a0a0a0;
+  margin-bottom: 15px;
+}
+
+#toll-overlay .toll-qr-container {
+  display: inline-block;
+  padding: 20px;
+  background: #ffffff;
+  border-radius: 15px;
+  box-shadow: 0 10px 40px rgba(233, 69, 96, 0.3);
+}
+
+#toll-overlay #toll-qrcode {
+  width: 180px;
+  height: 180px;
+}
+
+#toll-overlay .toll-session {
+  margin-top: 30px;
+  padding: 15px 25px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+#toll-overlay .toll-session-label {
+  font-size: 0.9rem;
+  color: #a0a0a0;
+  margin-bottom: 8px;
+}
+
+#toll-overlay .toll-session-id {
+  font-family: 'Consolas', 'Monaco', monospace;
+  font-size: 1.2rem;
+  color: #4ecca3;
+  letter-spacing: 2px;
+  user-select: all;
+}
+
+#toll-overlay .toll-status {
+  margin-top: 25px;
+  font-size: 0.95rem;
+  color: #666;
+}
+
+#toll-overlay .toll-status.connecting {
+  color: #ffa500;
+}
+
+#toll-overlay .toll-status.connected {
+  color: #4ecca3;
+}
+
+#toll-overlay .toll-status.unlocking {
+  color: #e94560;
+  animation: blink 0.5s ease-in-out infinite;
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+/* アンロック成功アニメーション */
+#toll-overlay.unlocking {
+  animation: fadeOut 0.5s ease-out forwards;
+}
+
+@keyframes fadeOut {
+  0% { opacity: 1; transform: scale(1); }
+  100% { opacity: 0; transform: scale(1.1); }
+}
