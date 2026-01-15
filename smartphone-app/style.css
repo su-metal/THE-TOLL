@@ -1,9 +1,446 @@
-/* THE TOLL - スマホアプリ スタイル（2026トレンドUI） */
+/* THE TOLL - App Style Refined (LP Aligned) */
+
+:root {
+  --primary: #ff1a1a;
+  --primary-glow: rgba(255, 26, 26, 0.5);
+  --bg-dark: #000000;
+  --bg-card: rgba(15, 15, 15, 0.6);
+  --glass: rgba(255, 255, 255, 0.03);
+  --glass-border: rgba(255, 255, 255, 0.1);
+  --text-primary: #ffffff;
+  --text-secondary: #888888;
+  --success: #00ff66;
+  --error: #ff1a1a;
+}
 
 * {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
+}
+
+body {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  background-color: var(--bg-dark);
+  color: var(--text-primary);
+  min-height: 100vh;
+  min-height: 100dvh;
+  overflow: hidden;
+  /* Noise overlay simulated via simple grain if needed, keeping it simple for performance */
+}
+
+#app {
+  width: 100%;
+  height: 100vh;
+  height: 100dvh;
+  position: relative;
+  background: radial-gradient(circle at center top, #111 0%, #000 70%);
+}
+
+/* Common Screen Layout */
+.screen {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: none;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  opacity: 0;
+  transition: opacity 0.5s ease;
+  pointer-events: none;
+}
+
+.screen.active {
+  display: flex;
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* Container */
+.container {
+  width: 100%;
+  max-width: 400px;
+  padding: 40px 24px;
+  text-align: center;
+  position: relative;
+  z-index: 2;
+}
+
+/* Typography */
+h1 {
+  font-size: 2.5rem;
+  font-weight: 900;
+  letter-spacing: -0.05em;
+  line-height: 0.9;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+  color: var(--text-primary);
+}
+
+.subtitle {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  margin-bottom: 40px;
+}
+
+/* Forms & Inputs */
+.input-group {
+  margin-bottom: 24px;
+  text-align: left;
+}
+
+.input-group label {
+  display: block;
+  font-size: 0.7rem;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-bottom: 8px;
+  margin-left: 4px;
+}
+
+.input-group input {
+  width: 100%;
+  background: var(--glass);
+  border: 1px solid var(--glass-border);
+  padding: 16px 20px;
+  border-radius: 12px;
+  color: var(--text-primary);
+  font-family: 'Inter', monospace;
+  font-size: 1rem;
+  outline: none;
+  transition: all 0.3s ease;
+}
+
+.input-group input:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 20px var(--primary-glow);
+}
+
+/* Buttons */
+.btn {
+  width: 100%;
+  padding: 18px;
+  border-radius: 100px; /* Pill shape */
+  font-weight: 800;
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  border: none;
+  margin-bottom: 12px;
+}
+
+.btn.primary {
+  background: var(--primary);
+  color: #fff;
+  box-shadow: 0 10px 30px rgba(255, 26, 26, 0.2);
+}
+
+.btn.primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 15px 40px rgba(255, 26, 26, 0.4);
+}
+
+.btn.primary:active {
+  transform: scale(0.98);
+}
+
+.btn.secondary {
+  background: transparent;
+  border: 1px solid var(--glass-border);
+  color: var(--text-secondary);
+}
+
+.btn.secondary:hover {
+  border-color: var(--primary);
+  color: var(--text-primary);
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none !important;
+}
+
+.text-btn {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-top: 20px;
+  cursor: pointer;
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+}
+
+.text-btn:hover {
+  color: var(--text-primary);
+  border-bottom-color: var(--primary);
+}
+
+/* Helper Classes */
+.hidden { display: none !important; }
+
+/* Status Badges */
+#subscription-status-badge {
+  display: inline-block;
+  padding: 6px 14px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  border-radius: 100px;
+  margin-bottom: 24px;
+  border: 1px solid transparent;
+}
+
+.status-active {
+  color: var(--success);
+  border-color: rgba(0, 255, 102, 0.3) !important;
+  background: rgba(0, 255, 102, 0.1);
+}
+
+.status-inactive {
+  color: var(--text-secondary);
+  border-color: var(--glass-border) !important;
+  background: var(--glass);
+}
+
+/* Session / Camera Screen */
+#squat-screen {
+  background: #000;
+}
+
+.camera-container {
+  width: 100%;
+  height: 100%;
+  position: relative;
+}
+
+#camera, #pose-canvas {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transform: scaleX(-1);
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+
+/* HUD Overlay */
+.overlay-ui {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 10;
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 60px 24px 40px;
+}
+
+.hud-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.squat-counter {
+  font-size: 15rem; /* 大幅に拡大 */
+  font-weight: 900;
+  line-height: 0.8;
+  color: var(--primary);
+  text-shadow: 
+    0 0 40px rgba(0,0,0,0.8),
+    0 0 80px rgba(255, 26, 26, 0.4); /* 外側にグローを追加 */
+}
+
+.squat-total {
+  font-size: 1.5rem;
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+.hud-status {
+  background: rgba(0,0,0,0.6);
+  backdrop-filter: blur(10px);
+  padding: 8px 16px;
+  border-radius: 8px;
+  border-left: 3px solid var(--primary);
+  color: #fff;
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.hud-bottom {
+  text-align: center;
+}
+
+.hud-center {
+  position: absolute;
+  top: 150px;
+  left: 50%;
+  transform: translateX(-50%);
+  text-align: center;
+  z-index: 5;
+  width: 100%; /* 横幅いっぱいにして中央寄せ */
+}
+
+.session-id-display {
+  font-family: 'Inter', monospace;
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  letter-spacing: 0.2em;
+  margin-bottom: 8px;
+}
+
+.squat-guide {
+  color: #fff;
+  font-weight: 600;
+  font-size: 1.1rem;
+  text-shadow: 0 2px 4px rgba(0,0,0,0.8);
+}
+
+.guide-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0,0,0,0.8);
+  z-index: 20;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+/* Complete Screen */
+.complete-container {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  height: 100%;
+}
+
+.complete-circle {
+  position: relative;
+  width: 140px;
+  height: 140px;
+  margin: 0 auto 30px;
+}
+
+.progress-ring {
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+}
+
+.progress-ring-bg {
+  fill: none;
+  stroke: var(--glass-border);
+  stroke-width: 6;
+}
+
+.progress-ring-fill {
+  fill: none;
+  stroke: var(--primary);
+  stroke-width: 6;
+  stroke-linecap: round;
+  stroke-dasharray: 339.292;
+  stroke-dashoffset: 339.292;
+  animation: ring-fill 1s ease-out forwards;
+}
+
+@keyframes ring-fill {
+  to { stroke-dashoffset: 0; }
+}
+
+.complete-check {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 60px;
+  height: 60px;
+  color: var(--primary);
+  opacity: 0;
+  animation: check-pop 0.5s 0.3s ease-out forwards;
+}
+
+@keyframes check-pop {
+  0% { transform: translate(-50%, -50%) scale(0); opacity: 0; }
+  60% { transform: translate(-50%, -50%) scale(1.2); }
+  100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: 1fr 1px 1fr;
+  gap: 20px;
+  margin: 40px 0;
+  align-items: center;
+}
+
+.stat-box .val {
+  font-size: 2.5rem;
+  font-weight: 800;
+  color: #fff;
+}
+
+.stat-box .lbl {
+  font-size: 0.7rem;
+  color: var(--text-secondary);
+  letter-spacing: 0.2em;
+}
+
+.divider {
+  width: 1px;
+  height: 40px;
+  background: var(--glass-border);
+}
+
+/* QR Scanner */
+#qr-reader-container {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: #000;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+#qr-reader {
+  width: 100%;
+  border: none !important;
+}
+
+/* Feedback Animations */
+.squat-success {
+  animation: flash-green 0.3s ease;
+}
+
+@keyframes flash-green {
+  0% { box-shadow: inset 0 0 0 0 transparent; }
+  50% { box-shadow: inset 0 0 50px var(--primary); }
+  100% { box-shadow: inset 0 0 0 0 transparent; }
 }
 
 :root {
@@ -169,6 +606,119 @@ h1 {
   color: var(--text-muted);
   font-size: 0.75rem;
   letter-spacing: 1px;
+}
+
+/* QRスキャナー */
+.session-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+#qr-reader-container {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.95);
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  backdrop-filter: blur(10px);
+}
+
+#qr-reader {
+  width: 320px;
+  height: 320px;
+  border: 2px solid var(--primary);
+  border-radius: 20px;
+  overflow: hidden;
+  box-shadow: 0 0 50px var(--primary-glow);
+}
+
+#qr-reader__scan_region {
+  background: transparent !important;
+}
+
+#qr-reader__dashboard {
+  display: none !important;
+}
+
+.close-btn {
+  margin-top: 40px;
+  padding: 12px 40px;
+  background: var(--glass);
+  border: 1px solid var(--glass-border);
+  border-radius: 30px;
+  color: var(--text-light);
+  font-size: 0.9rem;
+  cursor: pointer;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+}
+
+/* 認証・決済関連 */
+.secondary-btn {
+  width: 100%;
+  padding: 16px;
+  background: var(--glass);
+  border: 1px solid var(--glass-border);
+  border-radius: 12px;
+  color: var(--text-light);
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  margin-top: 12px;
+}
+
+.text-btn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  margin-top: 20px;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.auth-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+#user-info p {
+  margin-bottom: 20px;
+  font-size: 0.9rem;
+}
+
+#subscription-status-badge {
+  display: inline-block;
+  padding: 6px 16px;
+  border-radius: 20px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  margin-bottom: 30px !important;
+}
+
+.status-active {
+  background: rgba(34, 204, 102, 0.15);
+  color: #22cc66;
+  border: 1px solid rgba(34, 204, 102, 0.3);
+}
+
+.status-inactive {
+  background: rgba(255, 51, 51, 0.15);
+  color: #ff3333;
+  border: 1px solid rgba(255, 51, 51, 0.3);
+}
+
+.hidden {
+  display: none !important;
 }
 
 /* カメラ画面 */

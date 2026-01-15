@@ -35,6 +35,50 @@
   }
 
   // ============================================
+  // サウンドエフェクト（Web Audio API）
+  // ============================================
+  
+  let audioContext = null;
+  
+  function initAudio() {
+    try {
+      audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    } catch (e) {
+      console.warn('[THE TOLL] AudioContext初期化失敗');
+    }
+  }
+
+  function playTone(frequency, duration, type = 'sine', volume = 0.3) {
+    if (!audioContext) return;
+    
+    const oscillator = audioContext.createOscillator();
+    const gainNode = audioContext.createGain();
+    
+    oscillator.connect(gainNode);
+    gainNode.connect(audioContext.destination);
+    
+    oscillator.type = type;
+    oscillator.frequency.value = frequency;
+    gainNode.gain.value = volume;
+    gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + duration);
+    
+    oscillator.start(audioContext.currentTime);
+    oscillator.stop(audioContext.currentTime + duration);
+  }
+
+  // ブロック時の警告音（重厚な警告音）
+  function playSoundBlock() {
+    if (!audioContext) {
+      initAudio();
+      if (!audioContext) return;
+    }
+    
+    // 低い警告音を2回
+    playTone(150, 0.3, 'sawtooth', 0.15);
+    setTimeout(() => playTone(100, 0.4, 'sawtooth', 0.15), 300);
+  }
+
+  // ============================================
   // オーバーレイ作成
   // ============================================
   
@@ -99,6 +143,9 @@
           correctLevel: QRCode.CorrectLevel.M
         });
       }
+      
+      // ブロック時の警告音を再生
+      playSoundBlock();
     }, 100);
     
     return overlay;
@@ -130,35 +177,54 @@
   // ============================================
   
   async function startPolling(sessionId, overlay) {
-    console.log('[THE TOLL] ポーリング開始:', sessionId);
+    debugLog('ポーリング開始: ' + sessionId);
     
-    // まずセッションを登録
-    try {
-      const registerResponse = await fetch(`${SUPABASE_URL}/rest/v1/squat_sessions`, {
-        method: 'POST',
-        headers: {
-          'apikey': SUPABASE_ANON_KEY,
-          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-          'Content-Type': 'application/json',
-          'Prefer': 'resolution=merge-duplicates'
-        },
-        body: JSON.stringify({ id: sessionId, unlocked: false })
-      });
-      
-      if (registerResponse.ok) {
-        console.log('[THE TOLL] セッション登録完了');
-        updateStatus(overlay, 'Connected - Waiting for squats', 'connected');
-      } else {
-        const error = await registerResponse.text();
-        console.error('[THE TOLL] セッション登録エラー:', error);
-        updateStatus(overlay, 'Connection error - Retrying...', 'connecting');
+    // 1. セッション登録（存在チェック含むUPSERT）
+    async function registerSession() {
+      try {
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/squat_sessions`, {
+          method: 'POST',
+          headers: {
+            'apikey': SUPABASE_ANON_KEY,
+            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+            'Content-Type': 'application/json',
+            'Prefer': 'resolution=merge-duplicates'
+          },
+          body: JSON.stringify({ id: sessionId, unlocked: false }),
+          cache: 'no-store'
+        });
+        
+        if (res.ok || res.status === 409) {
+          debugLog('セッション登録成功 (または既存)');
+          updateStatus(overlay, 'Connected - Waiting for squats', 'connected');
+          return true;
+        } else {
+          const errText = await res.text();
+          debugLog('登録エラー: ' + res.status + ' ' + errText);
+          updateStatus(overlay, 'Retrying connection...', 'connecting');
+          return false;
+        }
+      } catch (e) {
+        debugLog('登録例外: ' + e.message);
+        updateStatus(overlay, 'Network error - Retrying...', 'connecting');
+        return false;
       }
-    } catch (e) {
-      console.error('[THE TOLL] セッション登録例外:', e);
-      updateStatus(overlay, 'Network error', 'connecting');
     }
-    
-    // ポーリングでunlockedフラグを監視
+
+    // 登録できるまでリトライ（最大10回）
+    let registered = false;
+    for (let i = 0; i < 10; i++) {
+      registered = await registerSession();
+      if (registered) break;
+      await new Promise(r => setTimeout(r, 2000));
+    }
+
+    if (!registered) {
+      updateStatus(overlay, 'Connection failed. Please refresh.', 'connecting');
+      return;
+    }
+
+    // 2. ポーリングループ
     const pollInterval = setInterval(async () => {
       try {
         const response = await fetch(
@@ -167,25 +233,30 @@
             headers: {
               'apikey': SUPABASE_ANON_KEY,
               'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
-            }
+            },
+            cache: 'no-store' // キャッシュを無効化
           }
         );
         
         if (response.ok) {
           const data = await response.json();
-          console.log('[THE TOLL] ポーリング結果:', data);
-          
-          if (data.length > 0 && data[0].unlocked === true) {
-            console.log('[THE TOLL] アンロック信号検出！');
+          if (data && data.length > 0 && data[0].unlocked === true) {
+            debugLog('アンロック信号検出！');
             clearInterval(pollInterval);
             updateStatus(overlay, 'Squats complete! Unlocking...', 'unlocking');
             unlockPage(overlay);
           }
+        } else {
+          debugLog('ポーリングエラーステータス: ' + response.status);
         }
       } catch (e) {
-        console.error('[THE TOLL] ポーリングエラー:', e);
+        debugLog('ポーリング例外: ' + e.message);
       }
-    }, 2000); // 2秒ごとにチェック
+    }, 2000);
+  }
+
+  function debugLog(msg) {
+    console.log('[THE TOLL] ' + msg);
   }
 
   // ============================================

@@ -104,6 +104,25 @@ npx -y serve -l 3001
 python -m http.server 3001
 ```
 
+### 3. Supabase Secrets の設定
+```bash
+supabase secrets set STRIPE_SECRET_KEY=sk_test_...
+supabase secrets set STRIPE_WEBHOOK_SECRET=whsec_...
+supabase secrets set STRIPE_PRICE_ID=price_...
+```
+
+### 4. メール認証の設定 (重要)
+開発中、Supabaseのデフォルトのメール送信制限（3通/時）に掛かるのを避けるため、以下の設定を推奨します。
+
+#### 開発時 (認証スキップ)
+1. **Supabase Dashboard** > **Authentication** > **Providers** > **Email** を開く。
+2. **Confirm email** を **OFF** にして保存。
+   - これにより、新規登録直後に自動ログインできるようになります。
+
+#### 本番運用時 (認証有効化)
+1. **Confirm email** を **ON** に戻す。
+2. カスタムのSMTPサーバー（SendGrid, Resend等）を設定して制限を解除してください。
+
 ### 3.3 PCのローカルIPを確認
 
 ```bash
