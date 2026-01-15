@@ -44,11 +44,10 @@
         <div class="overlay-ui">
           <div class="counter-display">
             <span class="count" id="squat-count">0</span>
-            <span class="total">/ 5</span>
+            <span class="total">/5</span>
           </div>
           
           <div class="status-indicator" id="status">
-            <span class="icon">🔴</span>
             <span class="text">準備中...</span>
           </div>
         </div>
@@ -73,15 +72,38 @@
 
     <!-- 完了画面 -->
     <div id="complete-screen" class="screen">
-      <div class="container">
-        <div class="success-animation">
-          <div class="checkmark">✅</div>
+      <div class="container complete-container">
+        <!-- 円形の完了インジケーター -->
+        <div class="complete-circle">
+          <svg class="progress-ring" viewBox="0 0 120 120">
+            <circle class="progress-ring-bg" cx="60" cy="60" r="54" />
+            <circle class="progress-ring-fill" cx="60" cy="60" r="54" />
+          </svg>
+          <div class="complete-check">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+              <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+          </div>
         </div>
-        <h1>チャレンジ完了！</h1>
-        <p class="subtitle">スクワット5回達成</p>
         
-        <button id="unlock-btn" class="primary-btn success">
-          <span>🔓 PCをアンロック</span>
+        <h1 class="complete-title">COMPLETE</h1>
+        <p class="complete-subtitle">5 SQUATS ACHIEVED</p>
+        
+        <!-- 統計カード -->
+        <div class="stats-card">
+          <div class="stat-item">
+            <span class="stat-value">5</span>
+            <span class="stat-label">REPS</span>
+          </div>
+          <div class="stat-divider"></div>
+          <div class="stat-item">
+            <span class="stat-value" id="session-time">--</span>
+            <span class="stat-label">SEC</span>
+          </div>
+        </div>
+        
+        <button id="unlock-btn" class="unlock-btn">
+          UNLOCK PC
         </button>
         
         <p class="status-text" id="unlock-status"></p>

@@ -46,27 +46,26 @@
     
     overlay.innerHTML = `
       <div class="toll-container">
-        <div class="toll-icon">🏋️</div>
         <h1>THE TOLL</h1>
-        <p class="toll-subtitle">自制心を養うシステム</p>
+        <p class="toll-subtitle">SELF-DISCIPLINE SYSTEM</p>
         
         <div class="toll-instruction">
-          📱 スマホでスクワット <strong>5回</strong> してください
+          <p class="toll-instruction-text">Complete <strong>5</strong> squats on your phone to unlock</p>
         </div>
         
         <div class="toll-qr-section">
-          <p class="toll-qr-label">スマホでQRコードをスキャン</p>
+          <p class="toll-qr-label">SCAN WITH YOUR PHONE</p>
           <div class="toll-qr-container">
             <div id="toll-qrcode"></div>
           </div>
         </div>
         
         <div class="toll-session">
-          <p class="toll-session-label">セッションID</p>
+          <p class="toll-session-label">SESSION ID</p>
           <p class="toll-session-id">${sessionId}</p>
         </div>
         
-        <p class="toll-status connecting">🔄 Supabase接続中...</p>
+        <p class="toll-status connecting">Connecting...</p>
       </div>
     `;
     
@@ -77,6 +76,14 @@
       document.addEventListener('DOMContentLoaded', () => {
         document.body.appendChild(overlay);
       });
+    }
+    
+    // 背景画像を設定（chrome.runtime.getURLを使用）
+    try {
+      const bgImageUrl = chrome.runtime.getURL('images/bg-gym.png');
+      overlay.style.setProperty('--toll-bg-image', `url("${bgImageUrl}")`);
+    } catch (e) {
+      console.log('[THE TOLL] 背景画像の読み込みをスキップ');
     }
     
     // QRコード生成
@@ -140,15 +147,15 @@
       
       if (registerResponse.ok) {
         console.log('[THE TOLL] セッション登録完了');
-        updateStatus(overlay, '✅ 接続完了 - スクワットをお待ちしています', 'connected');
+        updateStatus(overlay, 'Connected - Waiting for squats', 'connected');
       } else {
         const error = await registerResponse.text();
         console.error('[THE TOLL] セッション登録エラー:', error);
-        updateStatus(overlay, '⚠️ 接続エラー（再試行中...）', 'connecting');
+        updateStatus(overlay, 'Connection error - Retrying...', 'connecting');
       }
     } catch (e) {
       console.error('[THE TOLL] セッション登録例外:', e);
-      updateStatus(overlay, '⚠️ ネットワークエラー', 'connecting');
+      updateStatus(overlay, 'Network error', 'connecting');
     }
     
     // ポーリングでunlockedフラグを監視
@@ -171,7 +178,7 @@
           if (data.length > 0 && data[0].unlocked === true) {
             console.log('[THE TOLL] アンロック信号検出！');
             clearInterval(pollInterval);
-            updateStatus(overlay, '🎉 スクワット完了！アンロックします...', 'unlocking');
+            updateStatus(overlay, 'Squats complete! Unlocking...', 'unlocking');
             unlockPage(overlay);
           }
         }

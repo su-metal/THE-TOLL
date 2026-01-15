@@ -225,7 +225,7 @@
 
   // ステータス更新
   function updateStatus(icon, text) {
-    elements.status.innerHTML = `<span class="icon">${icon}</span><span class="text">${text}</span>`;
+    elements.status.innerHTML = `<span class="text">${text}</span>`;
   }
 
   // スクワット完了処理
