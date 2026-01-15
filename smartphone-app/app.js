@@ -664,14 +664,16 @@
 
     const leftAngle = calculateAngle(lm[23], lm[25], lm[27]);
     const rightAngle = calculateAngle(lm[24], lm[26], lm[28]);
-    const avgAngle = (leftAngle + rightAngle) / 2;
 
-    if (!state.isSquatting && avgAngle < 95) {
+    // 両足が105度未満になったら「しゃがみ」と判定
+    if (!state.isSquatting && leftAngle < 105 && rightAngle < 105) {
       state.isSquatting = true;
       playSoundSquatDown();
       updateStatus('SQUAT DETECTED');
       elements.camera.classList.add('squat-down');
-    } else if (state.isSquatting && avgAngle > 170) {
+    } 
+    // 両足が165度以上になったら「立ち上がり」と判定してカウント
+    else if (state.isSquatting && leftAngle > 165 && rightAngle > 165) {
       state.isSquatting = false;
       state.squatCount++;
       elements.squatCountLabel.textContent = state.squatCount;
