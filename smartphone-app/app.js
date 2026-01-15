@@ -637,7 +637,7 @@
     });
     elements.canvas.width = elements.camera.videoWidth;
     elements.canvas.height = elements.camera.videoHeight;
-    updateStatus('✅', '準備完了');
+    updateStatus('READY');
   }
 
   function onPoseResults(results) {
@@ -645,7 +645,7 @@
     ctx.clearRect(0, 0, elements.canvas.width, elements.canvas.height);
     
     if (!results.poseLandmarks) {
-      updateStatus('🔴', '人物不在');
+      updateStatus('NO PERSON');
       elements.guide.classList.remove('hidden');
       return;
     }
@@ -654,7 +654,7 @@
     const minVis = 0.5;
     const landmarks = [lm[23], lm[25], lm[27], lm[24], lm[26], lm[28]];
     if (landmarks.some(l => l.visibility < minVis)) {
-      updateStatus('👀', '全身を映してください');
+      updateStatus('SHOW BODY');
       elements.guide.classList.remove('hidden');
       return;
     }
@@ -669,7 +669,7 @@
     if (!state.isSquatting && avgAngle < 95) {
       state.isSquatting = true;
       playSoundSquatDown();
-      updateStatus('🟢', 'しゃがみ検出');
+      updateStatus('SQUAT DETECTED');
       elements.camera.classList.add('squat-down');
     } else if (state.isSquatting && avgAngle > 170) {
       state.isSquatting = false;
@@ -686,7 +686,7 @@
         onSquatComplete();
       } else {
         playSoundCount();
-        updateStatus('💪', `${state.squatCount}回完了`);
+        updateStatus(`${state.squatCount} REPS`);
       }
     }
   }
@@ -698,7 +698,7 @@
   }
 
   function drawPose(ctx, lm, w, h) {
-    ctx.strokeStyle = 'rgba(233, 69, 96, 0.8)';
+    ctx.strokeStyle = '#CCFF00'; // Volt
     ctx.lineWidth = 4;
     const conn = [[11,13],[13,15],[12,14],[14,16],[11,12],[11,23],[12,24],[23,24],[23,25],[25,27],[24,26],[26,28]];
     conn.forEach(([a, b]) => {
@@ -710,7 +710,7 @@
 
     // 関節ポイントの描画
     const points = [11, 12, 13, 14, 15, 16, 23, 24, 25, 26, 27, 28];
-    ctx.fillStyle = '#ff1a1a';
+    ctx.fillStyle = '#ffffff';
     points.forEach(i => {
       ctx.beginPath();
       ctx.arc(lm[i].x * w, lm[i].y * h, 5, 0, Math.PI * 2);
@@ -722,7 +722,7 @@
     });
   }
 
-  function updateStatus(icon, text) { elements.statusLabel.innerHTML = `<span>${text}</span>`; }
+  function updateStatus(text) { elements.statusLabel.textContent = text; }
   
   function onSquatComplete() {
     const now = Date.now();
