@@ -40,6 +40,18 @@
     return sessionId;
   }
 
+  // ブロック対象サイトかチェック
+  async function isCurrentSiteBlocked() {
+    const settings = await chrome.storage.local.get('blocked_sites');
+    const blockedSites = settings.blocked_sites || ['youtube.com'];
+    const currentHost = window.location.hostname;
+    
+    return blockedSites.some(siteStr => {
+      const domains = siteStr.split(',');
+      return domains.some(domain => currentHost.includes(domain.trim()));
+    });
+  }
+
   // 強制停止
   function forcePause() {
     if (!isLocked) return;
@@ -118,10 +130,37 @@
   }
 
   // ============================================
-  // オーバーレイ作成
+  // オーバーレイ作成 (Shadow DOM使用)
   // ============================================
   
   async function createOverlay(sessionId) {
+    // 既存のオーバーレイを削除
+    const existingHost = document.getElementById('toll-overlay-host');
+    if (existingHost) existingHost.remove();
+
+    // ホスト要素の作成
+    const host = document.createElement('div');
+    host.id = 'toll-overlay-host';
+    host.style.position = 'fixed';
+    host.style.top = '0';
+    host.style.left = '0';
+    host.style.width = '100vw';
+    host.style.height = '100vh';
+    host.style.zIndex = '2147483647';
+    host.style.border = 'none';
+
+    // Shadow Rootの添付
+    const shadow = host.attachShadow({ mode: 'open' });
+
+    // CSSの読み込み (linkタグを使用する方がCSP制限を回避しやすい)
+    const link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = chrome.runtime.getURL('overlay.css');
+    shadow.appendChild(link);
+
+    // 古いfetchベースのコードは削除
+
+    // オーバーレイ本体
     const overlay = document.createElement('div');
     overlay.id = 'toll-overlay';
     
@@ -154,26 +193,28 @@
       </div>
     `;
     
-    // ページ読み込み前に挿入
+    shadow.appendChild(overlay);
+    
+    // ホストをページに挿入
     if (document.body) {
-      document.body.appendChild(overlay);
+      document.body.appendChild(host);
     } else {
       document.addEventListener('DOMContentLoaded', () => {
-        document.body.appendChild(overlay);
+        document.body.appendChild(host);
       });
     }
     
-    // 背景画像を設定（chrome.runtime.getURLを使用）
+    // 背景画像の設定
     try {
       const bgImageUrl = chrome.runtime.getURL('images/bg-gym.png');
       overlay.style.setProperty('--toll-bg-image', `url("${bgImageUrl}")`);
     } catch (e) {
-      console.log('[THE TOLL] 背景画像の読み込みをスキップ');
+      console.log('[THE TOLL] 背景画像の読み出しをスキップ');
     }
     
-    // QRコード生成
+    // QRコード生成 (Shadow DOM内でも動作するように微調整が必要な場合がある)
     setTimeout(() => {
-      const qrcodeElement = document.getElementById('toll-qrcode');
+      const qrcodeElement = shadow.getElementById('toll-qrcode');
       if (qrcodeElement && typeof QRCode !== 'undefined') {
         new QRCode(qrcodeElement, {
           text: appUrl,
@@ -185,7 +226,6 @@
         });
       }
       
-      // ブロック時の警告音を再生
       playSoundBlock();
     }, 100);
     
@@ -208,16 +248,16 @@
     isLocked = false;
     stopVideoMonitor();
 
-    // 解除時刻を保存（20分間の有効期限用）
+    // 解除時刻を保存
     const now = Date.now();
     await chrome.storage.local.set({ last_unlock_time: now });
-    debugLog('Unlock time saved: ' + new Date(now).toLocaleTimeString());
     
     // 再ロックタイマーをセット
     scheduleReLock(now);
 
     setTimeout(() => {
-      overlay.remove();
+      const host = document.getElementById('toll-overlay-host');
+      if (host) host.remove();
       sessionStorage.removeItem('toll_session_id');
     }, 500);
   }
@@ -288,14 +328,14 @@
 
   // ページをロック状態にする
   async function lockPage() {
-    const overlay = document.getElementById('toll-overlay');
-    if (isLocked && overlay) return;
+    const host = document.getElementById('toll-overlay-host');
+    if (isLocked && host) return;
     
     debugLog('Locking page now...');
     isLocked = true;
     
-    // オーバーレイがなければ作成
-    if (!overlay) {
+    // ホストがなければ作成
+    if (!host) {
       const sessionId = getOrCreateSessionId();
       debugLog('Creating overlay for session: ' + sessionId);
       const newOverlay = await createOverlay(sessionId);
@@ -458,33 +498,40 @@
 
   // 状態をチェックして適切なアクション（ロック/解除/タイマー開始）を実行
   async function checkAndApplyState() {
-    const { timeRemaining, durationMs } = await diagnosticLog();
+    debugLog('--- checkAndApplyState 開始 ---');
+    
+    // 0. ブロック対象サイトでなければ何もしない
+    const isBlocked = await isCurrentSiteBlocked();
+    if (!isBlocked) {
+      debugLog('このドメインはブロック対象外です。処理をスキップ。');
+      return;
+    }
+
+    const diag = await diagnosticLog();
+    const timeRemaining = diag.timeRemaining;
     const withinSchedule = await isWithinSchedule();
 
-    const overlay = document.getElementById('toll-overlay');
+    const host = document.getElementById('toll-overlay-host');
+    debugLog(`状態: isLocked=${isLocked}, host=${!!host}, withinSchedule=${withinSchedule}, timeRemaining=${timeRemaining}ms`);
 
     // 1. スケジュール外ならアンロック
     if (!withinSchedule) {
-      debugLog('Reason: Outside of schedule. Unlocking.');
-      if (isLocked || overlay) {
-        unlockNow(); 
-      }
-      if (reLockTimer) clearTimeout(reLockTimer);
-      if (countdownHUD) countdownHUD.remove();
+      debugLog('スケジュール外: アンロックします。');
+      unlockNow(); 
+      if (reLockTimer) { clearTimeout(reLockTimer); reLockTimer = null; }
+      if (countdownHUD) { countdownHUD.remove(); countdownHUD = null; }
       return;
     }
 
     // 2. 猶予期間内ならアンロック
     if (timeRemaining > 0) {
-      debugLog('Reason: Within grace period.');
-      if (isLocked || overlay) {
-        unlockNow();
-      }
+      debugLog(`猶予期間内 (${Math.round(timeRemaining/1000)}秒): アンロックを維持。`);
+      unlockNow();
       // 再ロックタイマーを更新
-      scheduleReLock(Date.now() - (durationMs - timeRemaining));
+      scheduleReLock(Date.now() - (diag.durationMs - timeRemaining));
     } else {
       // 3. ロックが必要な状態
-      debugLog('Reason: Grace period expired or never unlocked.');
+      debugLog('ロックが必要な状態: 猶予切れまたは未解除。');
       lockPage();
     }
   }
@@ -493,28 +540,23 @@
   function unlockNow() {
     isLocked = false;
     stopVideoMonitor();
-    const overlay = document.getElementById('toll-overlay');
-    if (overlay) overlay.remove();
-    debugLog('Forced unlock executed.');
+    const host = document.getElementById('toll-overlay-host');
+    if (host) {
+      host.remove();
+      debugLog('オーバーレイを削除しました。');
+    }
   }
 
   async function init() {
-    debugLog('Initializing THE TOLL...');
+    debugLog('THE TOLL 初期化開始...');
 
-    // ブロック対象サイトかチェック
-    const settings = await chrome.storage.local.get('blocked_sites');
-    const blockedSites = settings.blocked_sites || ['youtube.com'];
-    const currentHost = window.location.hostname;
-    
-    // サブドメインも考慮してマッチング (e.g., www.youtube.com matches youtube.com)
-    const isBlocked = blockedSites.some(site => currentHost.includes(site));
-
+    const isBlocked = await isCurrentSiteBlocked();
     if (!isBlocked) {
-      debugLog('Domain not in block list. Exiting.');
+      debugLog('このドメインはリストにありません。終了します。');
       return; 
     }
 
-    debugLog('Domain IS blocked. proceeding...');
+    debugLog('このドメインはブロック対象です。状態をチェックします...');
     await checkAndApplyState();
   }
 
