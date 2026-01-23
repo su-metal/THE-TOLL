@@ -204,7 +204,7 @@
     subscriptionStatus: 'inactive',
     sessionId: null,
     squatCount: 0,
-    targetCount: 20,
+    targetCount: 20, // デフォルト
     isSquatting: false,
     poseDetected: false,
     startTime: null,

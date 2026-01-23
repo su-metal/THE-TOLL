@@ -375,8 +375,43 @@
     }, 2000);
   }
 
+  // ============================================
+  // 設定のリアルタイム監視
+  // ============================================
+  
+  chrome.storage.onChanged.addListener((changes, namespace) => {
+    if (namespace === 'local') {
+      debugLog('Settings changed: ' + Object.keys(changes).join(', '));
+      // 設定が変更されたら、現在の状態を再評価
+      checkAndApplyState();
+    }
+  });
+
   function debugLog(msg) {
     console.log('[THE TOLL] ' + msg);
+  }
+
+  // 詳細な診断ログ
+  async function diagnosticLog() {
+    const data = await chrome.storage.local.get(['last_unlock_time', 'lock_duration_min', 'lock_schedule']);
+    const now = Date.now();
+    const lastUnlock = data.last_unlock_time || 0;
+    const durationMin = data.lock_duration_min || 20;
+    const durationMs = durationMin * 60 * 1000;
+    const timeSinceUnlock = now - lastUnlock;
+    const timeRemaining = durationMs - timeSinceUnlock;
+    
+    console.group('[THE TOLL DIAGNOSTICS]');
+    console.log('Current Time:', new Date(now).toLocaleTimeString());
+    console.log('Last Unlock:', lastUnlock ? new Date(lastUnlock).toLocaleTimeString() : 'NEVER');
+    console.log('Configured Duration:', durationMin + ' min');
+    console.log('Time Since Unlock:', Math.floor(timeSinceUnlock / 1000) + 's');
+    console.log('Time Remaining:', Math.floor(timeRemaining / 1000) + 's');
+    console.log('Is Locked (State):', isLocked);
+    console.log('Schedule:', data.lock_schedule || 'NOT SET');
+    console.groupEnd();
+    
+    return { timeRemaining, durationMs };
   }
 
   // ============================================
@@ -387,68 +422,75 @@
   async function isWithinSchedule() {
     const data = await chrome.storage.local.get('lock_schedule');
     const schedule = data.lock_schedule;
-    if (!schedule) return true; // 設定がない場合は常に有効
+    if (!schedule) return true;
 
     const now = new Date();
-    const day = now.getDay(); // 0(Sun) - 6(Sat)
+    const day = now.getDay();
     
-    // 1. 曜日のチェック
     if (!schedule.days.includes(day)) return false;
 
-    // 2. 時間のチェック
     const currentTimeStr = now.getHours().toString().padStart(2, '0') + ":" + now.getMinutes().toString().padStart(2, '0');
     
-    // 跨ぎ対応（例：22:00 〜 02:00）
     if (schedule.start <= schedule.end) {
       return currentTimeStr >= schedule.start && currentTimeStr <= schedule.end;
     } else {
-      // 終了時間が開始時間より前の場合は日を跨いでいると判定
       return currentTimeStr >= schedule.start || currentTimeStr <= schedule.end;
     }
   }
 
-  async function init() {
-    // 0. スケジュールチェック
-    if (!(await isWithinSchedule())) {
-      debugLog('Outside of lock schedule. Extension idle.');
-      isLocked = false;
+  // 状態をチェックして適切なアクション（ロック/解除/タイマー開始）を実行
+  async function checkAndApplyState() {
+    const { timeRemaining, durationMs } = await diagnosticLog();
+    const withinSchedule = await isWithinSchedule();
+
+    // 1. スケジュール外なら何もしない（ロックがあれば外す）
+    if (!withinSchedule) {
+      debugLog('Reason: Outside of schedule. Unlocking if needed.');
+      if (isLocked) {
+        isLocked = false;
+        stopVideoMonitor();
+        const overlay = document.getElementById('toll-overlay');
+        if (overlay) overlay.remove();
+      }
+      if (reLockTimer) clearTimeout(reLockTimer);
+      if (countdownHUD) countdownHUD.remove();
       return;
     }
 
-    // 1. 設定からロック時間を取得して反映
-    const settings = await chrome.storage.local.get('lock_duration_min');
-    const durationMin = settings.lock_duration_min || 20;
-    GRACE_PERIOD_MS = durationMin * 60 * 1000;
-
-    // 1. 解除猶予期間のチェック
-    try {
-      const data = await chrome.storage.local.get('last_unlock_time');
-      const lastUnlock = data.last_unlock_time || 0;
-      const now = Date.now();
+    // 2. 猶予期間内かどうか
+    if (timeRemaining > 0) {
+      debugLog('Reason: Within grace period.');
+      isLocked = false;
+      stopVideoMonitor();
+      const overlay = document.getElementById('toll-overlay');
+      if (overlay) overlay.remove();
       
-      if (now - lastUnlock < GRACE_PERIOD_MS) {
-        debugLog('Grace period active. Page unlocked.');
-        isLocked = false;
-        
-        // 残り時間のカウントダウンと再ロックをセットアップ
-        scheduleReLock(lastUnlock);
-        return; 
+      // 再ロックタイマーを更新
+      scheduleReLock(Date.now() - (durationMs - timeRemaining));
+    } else {
+      // 3. ロックが必要な状態
+      debugLog('Reason: Grace period expired or never unlocked.');
+      if (!isLocked || !document.getElementById('toll-overlay')) {
+        lockPage();
       }
-    } catch (e) {
-      debugLog('Grace period check error: ' + e.message);
     }
+  }
 
-    const sessionId = getOrCreateSessionId();
-    console.log('[THE TOLL] セッションID:', sessionId);
-    
-    const overlay = createOverlay(sessionId);
-    
-    // ビデオ停止と監視開始
-    forcePause();
-    startVideoMonitor();
-    
-    // ポーリングでSupabaseを監視
-    startPolling(sessionId, overlay);
+  async function init() {
+    debugLog('Initializing THE TOLL...');
+    await checkAndApplyState();
+
+    // ロックが必要な場合のみポーリング等の従来処理を開始
+    if (isLocked) {
+      const sessionId = getOrCreateSessionId();
+      console.log('[THE TOLL] セッションID:', sessionId);
+      
+      const overlay = document.getElementById('toll-overlay') || createOverlay(sessionId);
+      
+      forcePause();
+      startVideoMonitor();
+      startPolling(sessionId, overlay);
+    }
   }
 
   // 即座に実行

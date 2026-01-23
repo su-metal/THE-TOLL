@@ -183,3 +183,102 @@ body {
   color: #333;
   font-weight: bold;
 }
+
+/* ============================================
+   SETTINGS GUARD
+   ============================================ */
+#settings-content.locked {
+  filter: blur(8px);
+  pointer-events: none;
+  opacity: 0.5;
+  user-select: none;
+}
+
+#lock-overlay {
+  position: absolute;
+  top: 70px; /* Headerの下から */
+  left: 0;
+  width: 100%;
+  height: calc(100% - 70px);
+  background: rgba(0, 0, 0, 0.7);
+  z-index: 100;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 20px;
+  box-sizing: border-box;
+}
+
+#lock-overlay.hidden {
+  display: none;
+}
+
+.lock-content {
+  text-align: center;
+  background: #000;
+  border: 1px solid #333;
+  padding: 20px;
+  border-radius: 8px;
+  width: 100%;
+}
+
+.lock-icon {
+  font-size: 2rem;
+  margin-bottom: 10px;
+}
+
+.lock-content h2 {
+  font-size: 0.9rem;
+  color: #fff;
+  margin: 0 0 10px 0;
+  letter-spacing: 2px;
+}
+
+.lock-content p {
+  font-size: 0.65rem;
+  color: #888;
+  margin: 0 0 20px 0;
+  line-height: 1.4;
+}
+
+.volt-btn {
+  background: #CCFF00;
+  color: #000;
+  border: none;
+  padding: 10px 20px;
+  font-family: inherit;
+  font-weight: bold;
+  font-size: 0.8rem;
+  border-radius: 4px;
+  cursor: pointer;
+  width: 100%;
+  text-transform: uppercase;
+}
+
+#settings-qr-section {
+  margin-top: 20px;
+}
+
+#settings-qrcode {
+  background: #fff;
+  padding: 10px;
+  display: inline-block;
+  border-radius: 8px;
+}
+
+.qr-hint {
+  font-size: 0.6rem;
+  color: #CCFF00 !important;
+  margin: 10px 0 5px 0 !important;
+  letter-spacing: 1px;
+}
+
+#settings-poll-status {
+  font-size: 0.6rem !important;
+  color: #444 !important;
+  margin: 0 !important;
+}
+
+.hidden {
+  display: none !important;
+}
