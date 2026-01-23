@@ -282,11 +282,25 @@
     }, 1000);
   }
 
-  // ページをロック状態に戻す（リロードまたはタイマー）
+  // ページをロック状態にする
   function lockPage() {
-    if (isLocked) return;
-    debugLog('Grace period expired. Re-locking...');
-    location.reload(); // シンプルにリロードして初期化プロセス（init）を走らせる
+    const overlay = document.getElementById('toll-overlay');
+    if (isLocked && overlay) return;
+    
+    debugLog('Locking page now...');
+    isLocked = true;
+    
+    // オーバーレイがなければ作成
+    if (!overlay) {
+      const sessionId = getOrCreateSessionId();
+      debugLog('Creating overlay for session: ' + sessionId);
+      const newOverlay = createOverlay(sessionId);
+      
+      // 監視と制限を開始
+      forcePause();
+      startVideoMonitor();
+      startPolling(sessionId, newOverlay);
+    }
   }
 
   // ============================================
@@ -443,54 +457,46 @@
     const { timeRemaining, durationMs } = await diagnosticLog();
     const withinSchedule = await isWithinSchedule();
 
-    // 1. スケジュール外なら何もしない（ロックがあれば外す）
+    const overlay = document.getElementById('toll-overlay');
+
+    // 1. スケジュール外ならアンロック
     if (!withinSchedule) {
-      debugLog('Reason: Outside of schedule. Unlocking if needed.');
-      if (isLocked) {
-        isLocked = false;
-        stopVideoMonitor();
-        const overlay = document.getElementById('toll-overlay');
-        if (overlay) overlay.remove();
+      debugLog('Reason: Outside of schedule. Unlocking.');
+      if (isLocked || overlay) {
+        unlockNow(); 
       }
       if (reLockTimer) clearTimeout(reLockTimer);
       if (countdownHUD) countdownHUD.remove();
       return;
     }
 
-    // 2. 猶予期間内かどうか
+    // 2. 猶予期間内ならアンロック
     if (timeRemaining > 0) {
       debugLog('Reason: Within grace period.');
-      isLocked = false;
-      stopVideoMonitor();
-      const overlay = document.getElementById('toll-overlay');
-      if (overlay) overlay.remove();
-      
+      if (isLocked || overlay) {
+        unlockNow();
+      }
       // 再ロックタイマーを更新
       scheduleReLock(Date.now() - (durationMs - timeRemaining));
     } else {
       // 3. ロックが必要な状態
       debugLog('Reason: Grace period expired or never unlocked.');
-      if (!isLocked || !document.getElementById('toll-overlay')) {
-        lockPage();
-      }
+      lockPage();
     }
+  }
+
+  // 内部状態とUIを即座に「解除」にする
+  function unlockNow() {
+    isLocked = false;
+    stopVideoMonitor();
+    const overlay = document.getElementById('toll-overlay');
+    if (overlay) overlay.remove();
+    debugLog('Forced unlock executed.');
   }
 
   async function init() {
     debugLog('Initializing THE TOLL...');
     await checkAndApplyState();
-
-    // ロックが必要な場合のみポーリング等の従来処理を開始
-    if (isLocked) {
-      const sessionId = getOrCreateSessionId();
-      console.log('[THE TOLL] セッションID:', sessionId);
-      
-      const overlay = document.getElementById('toll-overlay') || createOverlay(sessionId);
-      
-      forcePause();
-      startVideoMonitor();
-      startPolling(sessionId, overlay);
-    }
   }
 
   // 即座に実行
