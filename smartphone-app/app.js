@@ -33,11 +33,14 @@
     situpBaseline: null,
     calibrationBuffer: [], // NEW: 安定判定用のバッファ
     _lastPersonTs: null,
-    _lastPushLog: null
+    _lastPushLog: null,
+    _squatReadySpoken: false
   };
  
   const EXERCISES = [
-    { type: 'SITUP', label: 'SIT-UP TEST', defaultCount: 20 }
+    { type: 'SQUAT', label: 'SQUAT', defaultCount: 20 },
+    { type: 'PUSHUP', label: 'PUSH-UP', defaultCount: 20 },
+    { type: 'SITUP', label: 'SIT-UP', defaultCount: 20 }
   ];
 
   // ============================================
@@ -350,27 +353,19 @@
     const lm = results.poseLandmarks;
     state._lastPersonTs = Date.now();
     
-    // 全身判定チェックの変更（種目によって変える）
-    if (state.exerciseType === 'SQUAT') {
-      const landmarks = [lm[23], lm[25], lm[27], lm[24], lm[26], lm[28]];
-      if (landmarks.some(l => l.visibility < 0.5)) { updateStatus('SHOW BODY'); elements.guide.classList.remove('hidden'); return; }
-    } else {
-      // 腕立て・腹筋は上半身(肩・耳)のどれかが見えていればOKに緩和 (膝で隠れる対策)
-      const landmarks = [lm[11], lm[12], lm[0]];
-      if (landmarks.every(l => l.visibility < 0.5)) { 
-        if (state.currentExerciseType === 'SITUP') {
-          updateStatus('TRY SIDE VIEW');
-        } else {
-          updateStatus('SHOW FACE/SHOULDERS'); 
-        }
-        elements.guide.classList.remove('hidden'); 
-        return; 
-      }
+    // 全身判定チェックの強化（全種目共通で厳格化）
+    const requiredLandmarks = [11, 12, 23, 24, 25, 26, 27, 28]; // 肩、腰、膝、足首
+    const isFullBodyVisible = requiredLandmarks.every(idx => lm[idx] && lm[idx].visibility > 0.5);
+    
+    if (!isFullBodyVisible) {
+      updateStatus('SHOW FULL BODY');
+      elements.guide.classList.remove('hidden');
+      return;
     }
     
     elements.guide.classList.add('hidden');
     drawPose(ctx, lm, elements.canvas.width, elements.canvas.height);
- 
+  
     if (state.exerciseType === 'SQUAT') {
       handleSquatDetection(lm);
     } else if (state.exerciseType === 'PUSHUP') {
@@ -383,7 +378,19 @@
   function handleSquatDetection(lm) {
     const leftAngle = calculateAngle(lm[23], lm[25], lm[27]);
     const rightAngle = calculateAngle(lm[24], lm[26], lm[28]);
- 
+    
+    // SQUATにもキャリブレーション（準備完了通知）を追加
+    if (state.startTime && (Date.now() - state.startTime < 2000)) {
+        updateStatus('STAND READY...');
+        return;
+    }
+    
+    if (!state._squatReadySpoken) {
+        playSoundCount();
+        speakText("Ready. Start!");
+        state._squatReadySpoken = true;
+    }
+
     if (!state.isSquatting && leftAngle < 105 && rightAngle < 105) {
       state.isSquatting = true;
       playSoundSquatDown();
@@ -611,6 +618,8 @@
     elements.sessionTimeLabel.textContent = time;
     if (elements.completeRepsDisplay) elements.completeRepsDisplay.textContent = state.squatCount;
     
+    speakText("Mission Complete!");
+    
     // カメラを停止
     if (state.poseCamera) {
       try {
@@ -658,6 +667,7 @@
     state.isSquatting = false;
     state.pushupBaseline = null;
     state.situpBaseline = null;
+    state._squatReadySpoken = false;
 
     // UIリセット
     elements.sessionInput.value = '';
@@ -690,6 +700,7 @@
     state.squatCount = 0;
     state.pushupBaseline = null;
     state.situpBaseline = null;
+    state._squatReadySpoken = false;
     
     // フルスクリーン解除 (任意: ユーザー体験的に戻した方がいい場合が多い)
     if (document.fullscreenElement) {

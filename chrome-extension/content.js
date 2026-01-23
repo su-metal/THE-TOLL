@@ -32,12 +32,15 @@ console.log('[THE TOLL] Content script loaded: ' + window.location.href);
     }).toUpperCase();
   }
 
-  // セッションIDの取得または生成
-  function getOrCreateSessionId() {
-    let sessionId = sessionStorage.getItem('toll_session_id');
+  // セッションIDの取得または生成 (非同期)
+  async function getOrCreateSessionId() {
+    const data = await chrome.storage.local.get('toll_global_session_id');
+    let sessionId = data.toll_global_session_id;
+    
     if (!sessionId) {
       sessionId = generateSessionId();
-      sessionStorage.setItem('toll_session_id', sessionId);
+      await chrome.storage.local.set({ 'toll_global_session_id': sessionId });
+      debugLog('New Global Session ID generated: ' + sessionId);
     }
     return sessionId;
   }
@@ -287,9 +290,9 @@ console.log('[THE TOLL] Content script loaded: ' + window.location.href);
     isLocked = false;
     stopVideoMonitor();
 
-    // 解除時刻を保存
+    // グローバルな解除時刻を保存 (全てのタブで共有)
     const now = Date.now();
-    await chrome.storage.local.set({ last_unlock_time: now });
+    await chrome.storage.local.set({ last_global_unlock_time: now });
     
     // 再ロックタイマーをセット
     scheduleReLock(now);
@@ -297,7 +300,6 @@ console.log('[THE TOLL] Content script loaded: ' + window.location.href);
     setTimeout(() => {
       const host = document.getElementById('toll-overlay-host');
       if (host) host.remove();
-      sessionStorage.removeItem('toll_session_id');
     }, 500);
   }
 
@@ -375,7 +377,7 @@ console.log('[THE TOLL] Content script loaded: ' + window.location.href);
     
     // ホストがなければ作成
     if (!host) {
-      const sessionId = getOrCreateSessionId();
+      const sessionId = await getOrCreateSessionId();
       debugLog('Creating overlay for session: ' + sessionId);
       const newOverlay = await createOverlay(sessionId);
       
@@ -488,33 +490,65 @@ console.log('[THE TOLL] Content script loaded: ' + window.location.href);
     console.log('[THE TOLL] ' + msg);
   }
 
-  // 詳細な診断ログ
-  async function diagnosticLog() {
-    const data = await chrome.storage.local.get(['last_unlock_time', 'lock_duration_min', 'lock_schedule']);
+  // 状態をチェックして適切なアクション（ロック/解除/タイマー開始）を実行
+  async function checkAndApplyState() {
+    debugLog('--- checkAndApplyState 開始 ---');
+    
+    // 0. ブロック対象サイトでなければ何もしない
+    const isBlocked = await isCurrentSiteBlocked();
+    if (!isBlocked) {
+      debugLog('このドメインはブロック対象外です。処理をスキップ。');
+      return;
+    }
+
+    const data = await chrome.storage.local.get(['last_global_unlock_time', 'lock_duration_min', 'lock_schedule']);
+    
     const now = Date.now();
-    const lastUnlock = data.last_unlock_time || 0;
+    const lastUnlock = data.last_global_unlock_time || 0;
     const durationMin = data.lock_duration_min || 20;
     const durationMs = durationMin * 60 * 1000;
     const timeSinceUnlock = now - lastUnlock;
     const timeRemaining = durationMs - timeSinceUnlock;
     
-    console.group('[THE TOLL DIAGNOSTICS]');
-    console.log('Current Time:', new Date(now).toLocaleTimeString());
-    console.log('Last Unlock:', lastUnlock ? new Date(lastUnlock).toLocaleTimeString() : 'NEVER');
-    console.log('Configured Duration:', durationMin + ' min');
-    console.log('Time Since Unlock:', Math.floor(timeSinceUnlock / 1000) + 's');
-    console.log('Time Remaining:', Math.floor(timeRemaining / 1000) + 's');
-    console.log('Is Locked (State):', isLocked);
-    console.log('Schedule:', data.lock_schedule || 'NOT SET');
-    console.groupEnd();
-    
-    return { timeRemaining, durationMs };
+    const withinSchedule = await isWithinSchedule();
+
+    const host = document.getElementById('toll-overlay-host');
+    debugLog(`状態: isLocked=${isLocked}, host=${!!host}, withinSchedule=${withinSchedule}, timeRemaining=${timeRemaining}ms`);
+
+    // 1. スケジュール外ならアンロック
+    if (!withinSchedule) {
+      console.warn('[THE TOLL] OUTSIDE SCHEDULE HOURS - UNLOCKING');
+      debugLog('スケジュール外: アンロックします。');
+      unlockNow(); 
+      if (reLockTimer) { clearTimeout(reLockTimer); reLockTimer = null; }
+      if (countdownHUD) { countdownHUD.remove(); countdownHUD = null; }
+      return;
+    }
+
+    // 2. 猶予期間内ならアンロック
+    if (lastUnlock > 0 && timeRemaining > 0) {
+      debugLog(`グローバル猶予期間内 (${Math.round(timeRemaining/1000)}秒): アンロックを維持。`);
+      unlockNow();
+      // 再ロックタイマーをセット
+      scheduleReLock(lastUnlock);
+    } else {
+      // 3. ロックが必要な状態
+      debugLog('ロックが必要な状態: 猶予切れまたは未解除。');
+      lockPage();
+    }
   }
 
-  // ============================================
-  // メイン処理
-  // ============================================
-  
+  // 内部状態とUIを即座に「解除」にする
+  function unlockNow() {
+    isLocked = false;
+    stopVideoMonitor();
+    const host = document.getElementById('toll-overlay-host');
+    if (host) {
+      host.remove();
+      debugLog('オーバーレイを削除しました。');
+    }
+  }
+
   // スケジュール内かどうかをチェック
   async function isWithinSchedule() {
     const data = await chrome.storage.local.get('lock_schedule');
@@ -535,56 +569,29 @@ console.log('[THE TOLL] Content script loaded: ' + window.location.href);
     }
   }
 
-  // 状態をチェックして適切なアクション（ロック/解除/タイマー開始）を実行
-  async function checkAndApplyState() {
-    debugLog('--- checkAndApplyState 開始 ---');
+  // 詳細な診断ログ
+  async function diagnosticLog() {
+    const sessionId = await getOrCreateSessionId();
+    const data = await chrome.storage.local.get(['last_global_unlock_time', 'lock_duration_min', 'lock_schedule']);
+    const now = Date.now();
+    const lastUnlock = data.last_global_unlock_time || 0;
+    const durationMin = data.lock_duration_min || 20;
+    const durationMs = durationMin * 60 * 1000;
+    const timeSinceUnlock = now - lastUnlock;
+    const timeRemaining = durationMs - timeSinceUnlock;
     
-    // 0. ブロック対象サイトでなければ何もしない
-    const isBlocked = await isCurrentSiteBlocked();
-    if (!isBlocked) {
-      debugLog('このドメインはブロック対象外です。処理をスキップ。');
-      return;
-    }
-
-    const diag = await diagnosticLog();
-    const timeRemaining = diag.timeRemaining;
-    const withinSchedule = await isWithinSchedule();
-
-    const host = document.getElementById('toll-overlay-host');
-    debugLog(`状態: isLocked=${isLocked}, host=${!!host}, withinSchedule=${withinSchedule}, timeRemaining=${timeRemaining}ms`);
-
-    // 1. スケジュール外ならアンロック
-    if (!withinSchedule) {
-      console.warn('[THE TOLL] OUTSIDE SCHEDULE HOURS - UNLOCKING');
-      debugLog('スケジュール外: アンロックします。');
-      unlockNow(); 
-      if (reLockTimer) { clearTimeout(reLockTimer); reLockTimer = null; }
-      if (countdownHUD) { countdownHUD.remove(); countdownHUD = null; }
-      return;
-    }
-
-    // 2. 猶予期間内ならアンロック
-    if (timeRemaining > 0) {
-      debugLog(`猶予期間内 (${Math.round(timeRemaining/1000)}秒): アンロックを維持。`);
-      unlockNow();
-      // 再ロックタイマーを更新
-      scheduleReLock(Date.now() - (diag.durationMs - timeRemaining));
-    } else {
-      // 3. ロックが必要な状態
-      debugLog('ロックが必要な状態: 猶予切れまたは未解除。');
-      lockPage();
-    }
-  }
-
-  // 内部状態とUIを即座に「解除」にする
-  function unlockNow() {
-    isLocked = false;
-    stopVideoMonitor();
-    const host = document.getElementById('toll-overlay-host');
-    if (host) {
-      host.remove();
-      debugLog('オーバーレイを削除しました。');
-    }
+    console.group('[THE TOLL DIAGNOSTICS]');
+    console.log('Global Session ID:', sessionId);
+    console.log('Current Time:', new Date(now).toLocaleTimeString());
+    console.log('Global Last Unlock:', lastUnlock ? new Date(lastUnlock).toLocaleTimeString() : 'NEVER');
+    console.log('Configured Duration:', durationMin + ' min');
+    console.log('Time Since Unlock:', Math.floor(timeSinceUnlock / 1000) + 's');
+    console.log('Time Remaining:', Math.floor(timeRemaining / 1000) + 's');
+    console.log('Is Locked (State):', isLocked);
+    console.log('Schedule:', data.lock_schedule || 'NOT SET');
+    console.groupEnd();
+    
+    return { timeRemaining, durationMs };
   }
 
   async function init() {
