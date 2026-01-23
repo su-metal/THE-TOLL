@@ -677,6 +677,29 @@
     }
   }
 
+  function cancelSession() {
+    debugLog('Session Cancelled by User');
+    
+    // カメラ停止
+    if (state.poseCamera) {
+      state.poseCamera.stop().catch(() => {});
+      state.poseCamera = null;
+    }
+    
+    state.isSquatting = false;
+    state.squatCount = 0;
+    state.pushupBaseline = null;
+    state.situpBaseline = null;
+    
+    // フルスクリーン解除 (任意: ユーザー体験的に戻した方がいい場合が多い)
+    if (document.fullscreenElement) {
+       document.exitFullscreen().catch(()=>{});
+    }
+
+    showScreen('session-screen');
+    updateStatus('READY');
+  }
+
   async function init() {
     debugLog(`[THE TOLL] 初期化 ${APP_VERSION}`);
     
@@ -738,6 +761,15 @@
         state.calibrationBuffer = [];
         debugLog('Recalibration requested');
         updateStatus('RE-CALIBRATING');
+      };
+    }
+    
+    // EXITボタン (New)
+    const exitBtn = document.getElementById('exit-btn');
+    if (exitBtn) {
+      exitBtn.onclick = () => {
+        if(!confirm('トレーニングを中断しますか？')) return;
+        cancelSession();
       };
     }
 

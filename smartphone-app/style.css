@@ -513,6 +513,14 @@ h1 {
   transform: scale(0.95);
 }
 
+#exit-btn {
+  border-color: #ff3333;
+  color: #ff3333;
+}
+#exit-btn:hover {
+  background: rgba(255, 51, 51, 0.2);
+}
+
 /* ============================================ */
 /* SIT-UP Landscape Optimized UI                */
 /* ============================================ */
