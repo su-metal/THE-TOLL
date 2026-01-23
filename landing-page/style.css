@@ -53,6 +53,36 @@ body {
   z-index: -1;
 }
 
+/* Language Switcher */
+.lang-nav {
+  position: fixed;
+  top: 30px;
+  right: 5%;
+  z-index: 1000;
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  display: flex;
+  gap: 10px;
+  background: rgba(0,0,0,0.8);
+  padding: 8px 15px;
+  border: 1px solid var(--dark-grey);
+  border-radius: 4px;
+}
+
+.lang-link {
+  color: var(--mid-grey);
+  text-decoration: none;
+  transition: color 0.2s;
+}
+
+.lang-link:hover, .lang-link.active {
+  color: var(--volt);
+}
+
+.lang-nav .divider {
+  color: var(--dark-grey);
+}
+
 /* Typography Overrides */
 h1, h2, h3 {
   font-family: var(--font-display);
