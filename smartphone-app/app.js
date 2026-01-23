@@ -393,6 +393,14 @@
     if (elements.backToSessionBtn) {
       elements.backToSessionBtn.addEventListener('click', (e) => {
         e.preventDefault();
+        // セッション情報をクリア
+        elements.sessionInput.value = '';
+        state.sessionId = null;
+        // アンロックボタンの状態も戻しておく
+        elements.unlockBtn.disabled = false;
+        elements.unlockBtn.innerHTML = '<span>UNLOCK PC</span>';
+        elements.unlockStatus.textContent = '';
+        
         showScreen('session-screen');
       });
     }
