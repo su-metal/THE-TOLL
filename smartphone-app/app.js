@@ -353,12 +353,25 @@
     const lm = results.poseLandmarks;
     state._lastPersonTs = Date.now();
     
-    // 全身判定チェックの強化（全種目共通で厳格化）
-    const requiredLandmarks = [11, 12, 23, 24, 25, 26, 27, 28]; // 肩、腰、膝、足首
-    const isFullBodyVisible = requiredLandmarks.every(idx => lm[idx] && lm[idx].visibility > 0.5);
+    // 種目に応じた検知要件の定義
+    let requiredLandmarks = [];
+    let visibilityMsg = 'SHOW FULL BODY';
     
-    if (!isFullBodyVisible) {
-      updateStatus('SHOW FULL BODY');
+    if (state.exerciseType === 'SQUAT') {
+      requiredLandmarks = [11, 12, 23, 24, 25, 26, 27, 28]; // 全身
+      visibilityMsg = 'SHOW FULL BODY';
+    } else if (state.exerciseType === 'PUSHUP') {
+      requiredLandmarks = [11, 12, 23, 24]; // 肩と腰
+      visibilityMsg = 'SHOW TORSO';
+    } else if (state.exerciseType === 'SITUP') {
+      requiredLandmarks = [0, 11, 12]; // 頭と肩
+      visibilityMsg = 'SHOW UPPER BODY';
+    }
+    
+    const isVisible = requiredLandmarks.every(idx => lm[idx] && lm[idx].visibility > 0.5);
+    
+    if (!isVisible) {
+      updateStatus(visibilityMsg);
       elements.guide.classList.remove('hidden');
       return;
     }
