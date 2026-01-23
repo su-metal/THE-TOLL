@@ -21,14 +21,21 @@
     sessionId: null,
     squatCount: 0,
     targetCount: 20, // デフォルト
+    exerciseType: 'SQUAT', // SQUAT, PUSHUP, SITUP
+    cycleIndex: 0,
     isSquatting: false,
-    poseDetected: false,
     startTime: null,
     audioContext: null,
     html5QrCode: null,
     poseCamera: null,
     deferredPrompt: null
   };
+ 
+  const EXERCISES = [
+    { type: 'SQUAT', label: 'SQUAT', defaultCount: 20 },
+    { type: 'PUSHUP', label: 'PUSH-UP', defaultCount: 15 },
+    { type: 'SITUP', label: 'SIT-UP', defaultCount: 20 }
+  ];
 
   // ============================================
   // DOM要素
@@ -62,6 +69,7 @@
     statusLabel: document.getElementById('status'),
     guide: document.getElementById('guide'),
     currentSessionLabel: document.getElementById('current-session'),
+    exerciseLabel: document.getElementById('exercise-label'), // NEW
     
     completeScreen: document.getElementById('complete-screen'),
     sessionTimeLabel: document.getElementById('session-time'),
@@ -294,37 +302,101 @@
     const ctx = elements.canvas.getContext('2d');
     ctx.clearRect(0, 0, elements.canvas.width, elements.canvas.height);
     if (!results.poseLandmarks) { updateStatus('NO PERSON'); elements.guide.classList.remove('hidden'); return; }
-
+ 
     const lm = results.poseLandmarks;
-    const landmarks = [lm[23], lm[25], lm[27], lm[24], lm[26], lm[28]];
-    if (landmarks.some(l => l.visibility < 0.5)) { updateStatus('SHOW BODY'); elements.guide.classList.remove('hidden'); return; }
+    
+    // 全身判定チェックの変更（種目によって変える）
+    if (state.exerciseType === 'SQUAT') {
+      const landmarks = [lm[23], lm[25], lm[27], lm[24], lm[26], lm[28]];
+      if (landmarks.some(l => l.visibility < 0.5)) { updateStatus('SHOW BODY'); elements.guide.classList.remove('hidden'); return; }
+    } else {
+      // 腕立て・腹筋は上半身(肩・耳)が見えていればOK
+      const landmarks = [lm[11], lm[12], lm[0]];
+      if (landmarks.some(l => l.visibility < 0.5)) { updateStatus('SHOW FACE/SHOULDERS'); elements.guide.classList.remove('hidden'); return; }
+    }
     
     elements.guide.classList.add('hidden');
     drawPose(ctx, lm, elements.canvas.width, elements.canvas.height);
-
+ 
+    if (state.exerciseType === 'SQUAT') {
+      handleSquatDetection(lm);
+    } else if (state.exerciseType === 'PUSHUP') {
+      handlePushupDetection(lm);
+    } else if (state.exerciseType === 'SITUP') {
+      handleSitupDetection(lm);
+    }
+  }
+ 
+  function handleSquatDetection(lm) {
     const leftAngle = calculateAngle(lm[23], lm[25], lm[27]);
     const rightAngle = calculateAngle(lm[24], lm[26], lm[28]);
-
+ 
     if (!state.isSquatting && leftAngle < 105 && rightAngle < 105) {
       state.isSquatting = true;
       playSoundSquatDown();
       updateStatus('DOWN');
     } else if (state.isSquatting && leftAngle > 165 && rightAngle > 165) {
-      state.isSquatting = false;
-      state.squatCount++;
-      elements.squatCountLabel.textContent = state.squatCount;
-      speakText(state.squatCount.toString());
-      
-      if (state.squatCount >= state.targetCount) {
-        playSoundComplete();
-        onSquatComplete();
-      } else {
-        playSoundCount();
-        updateStatus(`${state.squatCount} REPS`);
-      }
+      countRep();
     }
   }
-
+ 
+  function handlePushupDetection(lm) {
+    // 正面判定: 肩のY座標平均を基準にする
+    const shoulderY = (lm[11].y + lm[12].y) / 2;
+    
+    // 正規化したY座標 (0~1) で判定。カメラ位置に依存するため相対的なしきい値
+    // 最初の一回目で基準Yをセットするなどの工夫も可能だが、まずは固定値で試作
+    if (!state.isSquatting && shoulderY > 0.75) { // 深く沈み込んだ
+      state.isSquatting = true;
+      playSoundSquatDown();
+      updateStatus('DOWN');
+    } else if (state.isSquatting && shoulderY < 0.55) { // 押し上げた
+      countRep();
+    }
+  }
+ 
+  function handleSitupDetection(lm) {
+    // 正面判定: 鼻(0)のY座標を監視
+    const noseY = lm[0].y;
+    
+    if (!state.isSquatting && noseY > 0.8) { // 寝ている状態
+      state.isSquatting = true;
+      playSoundSquatDown();
+      updateStatus('LIE DOWN');
+    } else if (state.isSquatting && noseY < 0.5) { // 起き上がった
+      countRep();
+    }
+  }
+ 
+  function countRep() {
+    state.isSquatting = false;
+    state.squatCount++;
+    elements.squatCountLabel.textContent = state.squatCount;
+    speakText(state.squatCount.toString());
+    
+    if (state.squatCount >= state.targetCount) {
+      playSoundComplete();
+      saveCycleProgress(); // 次へ
+      onSquatComplete();
+    } else {
+      playSoundCount();
+      updateStatus(`${state.squatCount} REPS`);
+    }
+  }
+ 
+  function loadNextExercise() {
+    const saved = localStorage.getItem('the_toll_cycle_index');
+    state.cycleIndex = saved ? parseInt(saved) % EXERCISES.length : 0;
+    state.exerciseType = EXERCISES[state.cycleIndex].type;
+    debugLog(`Next Exercise: ${state.exerciseType}`);
+  }
+ 
+  function saveCycleProgress() {
+    state.cycleIndex = (state.cycleIndex + 1) % EXERCISES.length;
+    localStorage.setItem('the_toll_cycle_index', state.cycleIndex);
+    debugLog(`Saved next cycle index: ${state.cycleIndex}`);
+  }
+ 
   function calculateAngle(a, b, c) {
     const r = Math.atan2(c.y - b.y, c.x - b.x) - Math.atan2(a.y - b.y, a.x - b.x);
     let deg = Math.abs(r * 180 / Math.PI);
