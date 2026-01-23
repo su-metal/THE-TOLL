@@ -11,7 +11,7 @@
   const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFjbnpsZWl5ZWtiZ3NpeW9td2luIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg0Mjk2NzMsImV4cCI6MjA4NDAwNTY3M30.NlGUfxDPzMgtu_J0vX7FMe-ikxafboGh5GMr-tsaLfI';
   
   // スマホアプリのURL（HTTPSが必要！ngrokを使用推奨）
-  const GRACE_PERIOD_MS = 20 * 60 * 1000; // 20分（ミリ秒）
+  let GRACE_PERIOD_MS = 20 * 60 * 1000; // デフォルト20分
   let isLocked = true;
   let observer = null;
   let reLockTimer = null;
@@ -219,9 +219,14 @@
   }
 
   // 再ロックのスケジュール設定
-  function scheduleReLock(unlockTime) {
+  async function scheduleReLock(unlockTime) {
     if (reLockTimer) clearTimeout(reLockTimer);
     
+    // 設定からロック時間を取得（デフォルト20分）
+    const settings = await chrome.storage.local.get('lock_duration_min');
+    const durationMin = settings.lock_duration_min || 20;
+    GRACE_PERIOD_MS = durationMin * 60 * 1000;
+
     const now = Date.now();
     const timeSinceUnlock = now - unlockTime;
     const timeRemaining = GRACE_PERIOD_MS - timeSinceUnlock;
@@ -378,8 +383,44 @@
   // メイン処理
   // ============================================
   
+  // スケジュール内かどうかをチェック
+  async function isWithinSchedule() {
+    const data = await chrome.storage.local.get('lock_schedule');
+    const schedule = data.lock_schedule;
+    if (!schedule) return true; // 設定がない場合は常に有効
+
+    const now = new Date();
+    const day = now.getDay(); // 0(Sun) - 6(Sat)
+    
+    // 1. 曜日のチェック
+    if (!schedule.days.includes(day)) return false;
+
+    // 2. 時間のチェック
+    const currentTimeStr = now.getHours().toString().padStart(2, '0') + ":" + now.getMinutes().toString().padStart(2, '0');
+    
+    // 跨ぎ対応（例：22:00 〜 02:00）
+    if (schedule.start <= schedule.end) {
+      return currentTimeStr >= schedule.start && currentTimeStr <= schedule.end;
+    } else {
+      // 終了時間が開始時間より前の場合は日を跨いでいると判定
+      return currentTimeStr >= schedule.start || currentTimeStr <= schedule.end;
+    }
+  }
+
   async function init() {
-    // 0. 解除猶予期間（20分）のチェック
+    // 0. スケジュールチェック
+    if (!(await isWithinSchedule())) {
+      debugLog('Outside of lock schedule. Extension idle.');
+      isLocked = false;
+      return;
+    }
+
+    // 1. 設定からロック時間を取得して反映
+    const settings = await chrome.storage.local.get('lock_duration_min');
+    const durationMin = settings.lock_duration_min || 20;
+    GRACE_PERIOD_MS = durationMin * 60 * 1000;
+
+    // 1. 解除猶予期間のチェック
     try {
       const data = await chrome.storage.local.get('last_unlock_time');
       const lastUnlock = data.last_unlock_time || 0;
