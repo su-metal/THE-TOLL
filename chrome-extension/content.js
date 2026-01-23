@@ -11,10 +11,11 @@
   const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFjbnpsZWl5ZWtiZ3NpeW9td2luIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg0Mjk2NzMsImV4cCI6MjA4NDAwNTY3M30.NlGUfxDPzMgtu_J0vX7FMe-ikxafboGh5GMr-tsaLfI';
   
   // スマホアプリのURL（HTTPSが必要！ngrokを使用推奨）
-  const SMARTPHONE_APP_URL = 'https://nikita-unmajestic-reciprocatively.ngrok-free.dev';
-
+  const GRACE_PERIOD_MS = 20 * 60 * 1000; // 20分（ミリ秒）
   let isLocked = true;
   let observer = null;
+  let reLockTimer = null;
+  let countdownHUD = null;
 
   // ============================================
   // ユーティリティ関数
@@ -197,15 +198,90 @@
   }
 
   // ページアンロック
-  function unlockPage(overlay) {
+  async function unlockPage(overlay) {
     console.log('[THE TOLL] アンロック実行！');
     overlay.classList.add('unlocking');
     isLocked = false;
     stopVideoMonitor();
+
+    // 解除時刻を保存（20分間の有効期限用）
+    const now = Date.now();
+    await chrome.storage.local.set({ last_unlock_time: now });
+    debugLog('Unlock time saved: ' + new Date(now).toLocaleTimeString());
+    
+    // 再ロックタイマーをセット
+    scheduleReLock(now);
+
     setTimeout(() => {
       overlay.remove();
       sessionStorage.removeItem('toll_session_id');
     }, 500);
+  }
+
+  // 再ロックのスケジュール設定
+  function scheduleReLock(unlockTime) {
+    if (reLockTimer) clearTimeout(reLockTimer);
+    
+    const now = Date.now();
+    const timeSinceUnlock = now - unlockTime;
+    const timeRemaining = GRACE_PERIOD_MS - timeSinceUnlock;
+
+    if (timeRemaining <= 0) {
+      lockPage();
+      return;
+    }
+
+    // 1. カウントダウンHUDの開始（再ロックの60秒前）
+    const countdownStartIn = Math.max(0, timeRemaining - 60 * 1000);
+    setTimeout(() => {
+      startCountdownTimer(unlockTime + GRACE_PERIOD_MS);
+    }, countdownStartIn);
+
+    // 2. 実際の再ロック
+    reLockTimer = setTimeout(() => {
+      lockPage();
+    }, timeRemaining);
+  }
+
+  // カウントダウンHUDの管理
+  function startCountdownTimer(expireTime) {
+    if (countdownHUD) countdownHUD.remove();
+    
+    countdownHUD = document.createElement('div');
+    countdownHUD.className = 'toll-countdown-hud';
+    countdownHUD.innerHTML = `
+      <div class="hud-label">RELOCK SEQUENCE INITIATED</div>
+      <div class="hud-timer"><span id="hud-min">00</span>:<span id="hud-sec">00</span></div>
+    `;
+    document.body.appendChild(countdownHUD);
+
+    const updateInterval = setInterval(() => {
+      const now = Date.now();
+      const remaining = Math.floor((expireTime - now) / 1000);
+
+      if (remaining <= 0) {
+        clearInterval(updateInterval);
+        countdownHUD.remove();
+        return;
+      }
+
+      if (remaining <= 10) countdownHUD.classList.add('warning');
+
+      const m = Math.floor(remaining / 60).toString().padStart(2, '0');
+      const s = (remaining % 60).toString().padStart(2, '0');
+      
+      const minEl = document.getElementById('hud-min');
+      const secEl = document.getElementById('hud-sec');
+      if (minEl) minEl.textContent = m;
+      if (secEl) secEl.textContent = s;
+    }, 1000);
+  }
+
+  // ページをロック状態に戻す（リロードまたはタイマー）
+  function lockPage() {
+    if (isLocked) return;
+    debugLog('Grace period expired. Re-locking...');
+    location.reload(); // シンプルにリロードして初期化プロセス（init）を走らせる
   }
 
   // ============================================
@@ -302,10 +378,27 @@
   // メイン処理
   // ============================================
   
-  function init() {
+  async function init() {
+    // 0. 解除猶予期間（20分）のチェック
+    try {
+      const data = await chrome.storage.local.get('last_unlock_time');
+      const lastUnlock = data.last_unlock_time || 0;
+      const now = Date.now();
+      
+      if (now - lastUnlock < GRACE_PERIOD_MS) {
+        debugLog('Grace period active. Page unlocked.');
+        isLocked = false;
+        
+        // 残り時間のカウントダウンと再ロックをセットアップ
+        scheduleReLock(lastUnlock);
+        return; 
+      }
+    } catch (e) {
+      debugLog('Grace period check error: ' + e.message);
+    }
+
     const sessionId = getOrCreateSessionId();
     console.log('[THE TOLL] セッションID:', sessionId);
-    
     
     const overlay = createOverlay(sessionId);
     
