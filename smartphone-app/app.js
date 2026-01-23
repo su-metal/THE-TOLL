@@ -228,6 +228,13 @@
     if (elements.targetCountDisplay) elements.targetCountDisplay.textContent = state.targetCount;
     if (elements.completeRepsDisplay) elements.completeRepsDisplay.textContent = state.targetCount;
     
+    // 自動的にフルスクリーンモードに入る
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch(err => {
+        debugLog(`Auto-fullscreen failed: ${err.message}`);
+      });
+    }
+    
     showScreen('squat-screen');
     initMediaPipe().catch(err => debugLog('Camera error: ' + err.message));
   }
