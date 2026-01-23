@@ -1,6 +1,8 @@
 // THE TOLL - コンテンツスクリプト
 // YouTubeをブロックし、スクワット完了でアンロック
 
+console.log('[THE TOLL] Content script loaded: ' + window.location.href);
+
 (function() {
   'use strict';
 
@@ -553,6 +555,7 @@
 
     // 1. スケジュール外ならアンロック
     if (!withinSchedule) {
+      console.warn('[THE TOLL] OUTSIDE SCHEDULE HOURS - UNLOCKING');
       debugLog('スケジュール外: アンロックします。');
       unlockNow(); 
       if (reLockTimer) { clearTimeout(reLockTimer); reLockTimer = null; }

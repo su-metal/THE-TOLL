@@ -14,7 +14,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js" crossorigin="anonymous"></script>
   <!-- PWA -->
   <link rel="manifest" href="manifest.json">
-  <meta name="theme-color" content="#CCFF00">
+  <meta name="theme-color" content="#000000">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="THE TOLL">
@@ -87,6 +87,11 @@
           <button id="start-btn" class="btn primary">
             START CHALLENGE
           </button>
+          <p id="next-exercise-display" class="subtitle" style="margin-top: -10px; font-size: 0.6rem; color: var(--volt);">NEXT: (LOADING...)</p>
+          <div style="font-size: 0.5rem; opacity: 0.5; margin-bottom: 20px;">
+            <a href="#" id="reset-cycle-btn" style="color: var(--volt); text-decoration: none;">[CHANGE EXERCISE]</a>
+            <span id="cycle-debug-info" style="margin-left: 10px;">ID: -</span>
+          </div>
           
           <button id="scan-qr-btn" class="btn secondary">
             SCAN QR CODE
@@ -96,7 +101,7 @@
         <p class="subtitle" style="margin-top: 20px;">Enter the ID displayed on your PC</p>
         
         <a href="#" id="session-logout-btn" class="text-btn">Logout from this account</a>
-        <a href="#" onclick="forceReset(); return false;" class="text-btn" style="display:block; margin-top:10px; opacity: 0.5;">System Reset (v2.11)</a>
+        <a href="#" onclick="forceReset(); return false;" class="text-btn" style="display:block; margin-top:10px; opacity: 0.5;">System Hard Reset (v2.16)</a>
       </div>
 
       <!-- QRスキャナーオーバーレイ -->
@@ -115,16 +120,23 @@
         <div class="overlay-ui">
           <div class="hud-top">
             <div class="session-id-display">SESSION: <span id="current-session">-</span></div>
-            <div class="hud-status" id="status">READY</div>
+            <div class="hud-top-right">
+              <button id="fullscreen-btn" class="hud-mini-btn">FULLSCREEN</button>
+              <div class="hud-status" id="status">READY</div>
+            </div>
           </div>
 
           <div class="hud-center">
+             <div class="exercise-name" id="exercise-label">SQUAT</div>
              <div class="squat-counter"><span id="squat-count">0</span><span class="squat-total">/<span id="target-count-display">20</span></span></div>
           </div>
           
           
           <div class="hud-bottom">
-            <div class="squat-guide" id="squat-hint">SQUAT DEEP</div>
+            <div class="hud-bottom-flex">
+              <div class="squat-guide" id="squat-hint">LOWER YOUR BODY</div>
+              <button id="recalibrate-btn" class="hud-btn">RESET CAPTURE</button>
+            </div>
           </div>
         </div>
         
@@ -166,13 +178,13 @@
         
         <a href="#" id="back-to-session-btn" class="text-btn" style="display:block; margin-bottom: 20px;">START ANOTHER SESSION</a>
         
-        <a href="#" onclick="forceReset(); return false;" class="text-btn" style="opacity: 0.5;">System Reset (v2.11)</a>
+        <a href="#" onclick="forceReset(); return false;" class="text-btn" style="opacity: 0.5;">System Hard Reset (v2.16)</a>
       </div>
     </div>
         
     
     <!-- デバッグコンソール -->
-    <div id="debug-console" style="position:fixed; bottom:0; left:0; width:100%; height:150px; background:rgba(0,0,0,0.8); color:#0f0; font-size:10px; overflow-y:scroll; z-index:9999; padding:5px; pointer-events:none; display:none;"></div>
+    <div id="debug-console" style="position:fixed; bottom:0; left:0; width:100%; height:150px; background:rgba(0,0,0,0.8); color:#0f0; font-size:10px; overflow-y:scroll; z-index:9999; padding:5px; pointer-events:none; display:block;"></div>
   </div>
 
   <script src="app.js"></script>
@@ -193,6 +205,7 @@
         await Promise.all(keys.map(key => caches.delete(key)));
       }
       
+      localStorage.clear();
       window.location.reload(true);
     }
   </script>

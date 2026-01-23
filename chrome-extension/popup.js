@@ -214,4 +214,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     lockOverlay.classList.add('hidden');
     settingsContent.classList.remove('locked');
   }
+
+  // FORCE RELOCK (FOR TESTING)
+  const relockBtn = document.getElementById('force-relock-btn');
+  if (relockBtn) {
+    relockBtn.addEventListener('click', async () => {
+      await chrome.storage.local.remove('last_unlock_time');
+      statusMsg.textContent = 'LOCK RESET - RELOAD TAB TO TEST';
+      showSavedStatus();
+      setTimeout(() => { statusMsg.textContent = 'SETTINGS SAVED'; }, 2100);
+    });
+  }
 });
