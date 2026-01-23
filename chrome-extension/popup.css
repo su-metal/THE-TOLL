@@ -28,6 +28,63 @@ body {
   letter-spacing: 2px;
 }
 
+/* INCOGNITO BANNER */
+.incognito-banner {
+  background: #ff3333;
+  padding: 10px;
+  border-radius: 4px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  margin-top: 5px;
+}
+
+.banner-content {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.banner-icon {
+  font-size: 1.2rem;
+}
+
+.banner-text {
+  display: flex;
+  flex-direction: column;
+}
+
+.banner-title {
+  font-size: 0.65rem;
+  font-weight: bold;
+  color: #fff;
+  margin: 0;
+  letter-spacing: 0.5px;
+}
+
+.banner-desc {
+  font-size: 0.5rem;
+  color: rgba(255, 255, 255, 0.8);
+  margin: 0;
+}
+
+.fix-btn {
+  background: #fff;
+  color: #ff3333;
+  border: none;
+  padding: 4px 8px;
+  font-size: 0.6rem;
+  font-weight: bold;
+  border-radius: 2px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.fix-btn:hover {
+  background: #eee;
+}
+
 .group-label {
   font-size: 0.7rem;
   color: #555;
