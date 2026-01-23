@@ -107,6 +107,35 @@ body {
 }
 
 /* ============================================
+   BLOCKED SITES UI
+   ============================================ */
+.blocked-sites-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+  background: #111;
+  padding: 10px;
+  border-radius: 4px;
+  border: 1px solid #222;
+}
+
+.site-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.site-check input {
+  accent-color: #CCFF00;
+}
+
+.site-check span {
+  font-size: 0.7rem;
+  color: #ccc;
+}
+
+/* ============================================
    スケジューリング UI
    ============================================ */
 .schedule-days {

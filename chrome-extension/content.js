@@ -500,6 +500,21 @@
 
   async function init() {
     debugLog('Initializing THE TOLL...');
+
+    // ブロック対象サイトかチェック
+    const settings = await chrome.storage.local.get('blocked_sites');
+    const blockedSites = settings.blocked_sites || ['youtube.com'];
+    const currentHost = window.location.hostname;
+    
+    // サブドメインも考慮してマッチング (e.g., www.youtube.com matches youtube.com)
+    const isBlocked = blockedSites.some(site => currentHost.includes(site));
+
+    if (!isBlocked) {
+      debugLog('Domain not in block list. Exiting.');
+      return; 
+    }
+
+    debugLog('Domain IS blocked. proceeding...');
     await checkAndApplyState();
   }
 

@@ -73,6 +73,21 @@ document.addEventListener('DOMContentLoaded', async () => {
     showSavedStatus();
   });
 
+  // 4. Blocked Sites
+  const siteChecks = document.querySelectorAll('input[name="blocked-site"]');
+  const sitesData = await chrome.storage.local.get('blocked_sites');
+  // デフォルト: YouTubeのみ有効
+  const savedSites = sitesData.blocked_sites || ['youtube.com'];
+  
+  siteChecks.forEach(check => {
+    check.checked = savedSites.includes(check.value);
+    check.addEventListener('change', async () => {
+      const activeSites = Array.from(siteChecks).filter(c => c.checked).map(c => c.value);
+      await chrome.storage.local.set({ blocked_sites: activeSites });
+      showSavedStatus();
+    });
+  });
+
   // --- Settings Guard Logic ---
 
   unlockBtn.addEventListener('click', async () => {
