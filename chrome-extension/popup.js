@@ -59,6 +59,20 @@ document.addEventListener('DOMContentLoaded', async () => {
     setTimeout(() => { statusMsg.className = ''; }, 2000);
   }
 
+  // 3. Squat Target
+  const squatInput = document.getElementById('squat-target-input');
+  const squatData = await chrome.storage.local.get('target_squat_count');
+  const savedSquatTarget = squatData.target_squat_count || 5;
+  
+  squatInput.value = savedSquatTarget;
+  squatInput.addEventListener('change', async (e) => {
+    let val = parseInt(e.target.value);
+    if (isNaN(val) || val < 1) val = 1;
+    squatInput.value = val;
+    await chrome.storage.local.set({ target_squat_count: val });
+    showSavedStatus();
+  });
+
   // --- Settings Guard Logic ---
 
   unlockBtn.addEventListener('click', async () => {

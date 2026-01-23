@@ -1,4 +1,4 @@
-// THE TOLL - スクワット検出アプリ
+// THE TOLL - スクワット検出アプリ (Reduced Duplication & Fixed Session Reset)
 // MediaPipe Poseを使用してスクワットをカウント
 
 (function() {
@@ -7,193 +7,9 @@
   // ============================================
   // 設定
   // ============================================
-  // ============================================
-  // 設定
-  // ============================================
-  const APP_VERSION = 'v2.11 (Redesign)';
+  const APP_VERSION = 'v2.13 (Target Fix)';
   const SUPABASE_URL = 'https://qcnzleiyekbgsiyomwin.supabase.co';
-  // ... (Keys unchanged)
-
-  // ... (DebugLog unchanged)
-
-  // ============================================
-  // 認証・サブスク
-  // ============================================
-  async function updateUserInfo(user) {
-    debugLog(`[V2.11] Updating info for: ${user.email}`);
-    elements.userDisplayEmail.textContent = `LOGGED IN: ${user.email}`;
-    elements.authForm.classList.add('hidden');
-    elements.userInfo.classList.remove('hidden');
-    
-    try {
-      debugLog('Fetching profile...');
-      const { data: profile, error } = await state.supabase
-        .from('profiles')
-        .select('subscription_status')
-        .eq('id', user.id)
-        .single();
-        
-      if (error) debugLog('Profile fetch error: ' + error.message);
-
-      const status = profile?.subscription_status || 'inactive';
-      state.subscriptionStatus = status;
-      debugLog(`Subscription status from DB: ${status}`);
-      
-      const isActive = status === 'active';
-      elements.subscriptionStatusBadge.textContent = isActive ? 'STATUS: ACTIVE' : 'STATUS: INACTIVE';
-      elements.subscriptionStatusBadge.className = isActive ? 'status-active' : 'status-inactive';
-      
-      if (isActive) {
-        elements.subscribeBtn.classList.add('hidden');
-        elements.toSessionBtn.disabled = false;
-        elements.toSessionBtn.textContent = 'ENTER SESSION';
-        
-        if (elements.authScreen.classList.contains('active')) {
-          debugLog('Active user: auto-redirecting to session-screen');
-          setTimeout(() => showScreen('session-screen'), 500);
-        }
-      } else {
-        elements.subscribeBtn.classList.remove('hidden');
-        elements.toSessionBtn.disabled = true;
-        elements.toSessionBtn.textContent = 'SUBSCRIPTION REQUIRED';
-      }
-    } catch (e) {
-      debugLog('Profile logic crash: ' + e.message);
-    }
-  }
-
-  // ... (Auth handlers unchanged) ...
-
-  // ============================================
-  // セッション・PC連携
-  // ============================================
-  async function startSession(sid) {
-    const sessionId = sid || elements.sessionInput.value.trim().toUpperCase();
-    if (!sessionId || sessionId.length < 4) return alert('Please enter Session ID');
-    
-    state.sessionId = sessionId;
-    state.squatCount = 0;
-    state.startTime = Date.now();
-    elements.currentSessionLabel.textContent = sessionId;
-    elements.squatCountLabel.textContent = '0';
-    
-    showScreen('squat-screen');
-    initMediaPipe().catch(() => updateStatus('CAMERA KEY ERROR'));
-  }
-
-  async function sendUnlockSignal() {
-    elements.unlockBtn.disabled = true;
-    elements.unlockStatus.textContent = 'SENDING SIGNAL...';
-    debugLog(`[V2.11] Sending unlock signal (RPC) for ID: [${state.sessionId}]`);
-    
-    try {
-      const { data, error } = await state.supabase
-        .rpc('unlock_session', { session_id: state.sessionId });
-      
-      debugLog(`RPC Result: ${JSON.stringify(data)}`);
-      
-      if (error) {
-        debugLog('RPC Error: ' + error.message);
-        throw error;
-      }
-      
-      if (data && data.success) {
-        debugLog('Unlock SUCCESS');
-        elements.unlockStatus.textContent = 'UNLOCK SUCCESSFUL';
-        elements.unlockBtn.innerHTML = 'SUCCESS';
-      } else {
-        debugLog('RPC failed: ' + JSON.stringify(data));
-        elements.unlockStatus.textContent = 'SESSION NOT FOUND';
-        elements.unlockBtn.disabled = false;
-        alert('Session not found. Please scan QR again.');
-      }
-    } catch (e) {
-      debugLog('Unlock Exception: ' + e.message);
-      elements.unlockStatus.textContent = 'SEND FAILED';
-      elements.unlockBtn.disabled = false;
-    }
-  }
-
-  // ============================================
-  // スクワット検出 (MediaPipe)
-  // ============================================
-  async function initMediaPipe() {
-    updateStatus('LOADING AI...');
-    // ... (MediaPipe setup unchanged) ...
-    await camera.start();
-    
-    // Wait for video dimensions
-    await new Promise(r => {
-      const check = () => elements.camera.videoWidth ? r() : requestAnimationFrame(check);
-      check();
-    });
-    elements.canvas.width = elements.camera.videoWidth;
-    elements.canvas.height = elements.camera.videoHeight;
-    updateStatus('READY');
-  }
-
-  function onPoseResults(results) {
-    const ctx = elements.canvas.getContext('2d');
-    ctx.clearRect(0, 0, elements.canvas.width, elements.canvas.height);
-    
-    if (!results.poseLandmarks) {
-      updateStatus('NO PERSON');
-      elements.guide.classList.remove('hidden');
-      return;
-    }
-
-    const lm = results.poseLandmarks;
-    const minVis = 0.5;
-    const landmarks = [lm[23], lm[25], lm[27], lm[24], lm[26], lm[28]];
-    if (landmarks.some(l => l.visibility < minVis)) {
-      updateStatus('SHOW BODY');
-      elements.guide.classList.remove('hidden');
-      return;
-    }
-    
-    elements.guide.classList.add('hidden');
-    drawPose(ctx, lm, elements.canvas.width, elements.canvas.height);
-
-    const leftAngle = calculateAngle(lm[23], lm[25], lm[27]);
-    const rightAngle = calculateAngle(lm[24], lm[26], lm[28]);
-    const avgAngle = (leftAngle + rightAngle) / 2;
-
-    if (!state.isSquatting && avgAngle < 110) {
-      state.isSquatting = true;
-      playSoundSquatDown();
-      updateStatus('DOWN');
-      elements.camera.classList.add('squat-down');
-    } else if (state.isSquatting && avgAngle > 165) {
-      state.isSquatting = false;
-      state.squatCount++;
-      elements.squatCountLabel.textContent = state.squatCount;
-      elements.camera.classList.remove('squat-down');
-      
-      if (state.squatCount >= state.targetCount) {
-        playSoundComplete();
-        onSquatComplete();
-      } else {
-        playSoundCount();
-        updateStatus(`${state.squatCount} REPS`);
-      }
-    }
-  }
-
-  // ... (math helpers unchanged) ...
-
-  function updateStatus(text) { elements.statusLabel.textContent = text; }
   const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFjbnpsZWl5ZWtiZ3NpeW9td2luIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg0Mjk2NzMsImV4cCI6MjA4NDAwNTY3M30.NlGUfxDPzMgtu_J0vX7FMe-ikxafboGh5GMr-tsaLfI';
-
-  // デバッグ用ロガー（画面に表示）
-  function debugLog(msg) {
-    console.log(msg);
-    const debugEl = document.getElementById('debug-console');
-    if (debugEl) {
-      const line = document.createElement('div');
-      line.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
-      debugEl.prepend(line);
-    }
-  }
 
   // ============================================
   // 状態管理
@@ -209,14 +25,15 @@
     poseDetected: false,
     startTime: null,
     audioContext: null,
-    html5QrCode: null
+    html5QrCode: null,
+    poseCamera: null,
+    deferredPrompt: null
   };
 
   // ============================================
   // DOM要素
   // ============================================
   const elements = {
-    // 認証・決済
     authScreen: document.getElementById('auth-screen'),
     authForm: document.getElementById('auth-form'),
     userInfo: document.getElementById('user-info'),
@@ -231,7 +48,6 @@
     toSessionBtn: document.getElementById('to-session-btn'),
     logoutBtn: document.getElementById('logout-btn'),
 
-    // セッション
     sessionScreen: document.getElementById('session-screen'),
     sessionInput: document.getElementById('session-input'),
     startBtn: document.getElementById('start-btn'),
@@ -239,212 +55,63 @@
     qrReaderContainer: document.getElementById('qr-reader-container'),
     closeScanBtn: document.getElementById('close-scan-btn'),
     
-    // スクワット
     squatScreen: document.getElementById('squat-screen'),
     camera: document.getElementById('camera'),
     canvas: document.getElementById('pose-canvas'),
     squatCountLabel: document.getElementById('squat-count'),
     statusLabel: document.getElementById('status'),
     guide: document.getElementById('guide'),
-    squatHint: document.getElementById('squat-hint'),
     currentSessionLabel: document.getElementById('current-session'),
-    cameraContainer: document.querySelector('.camera-container'),
     
-    // 完了
     completeScreen: document.getElementById('complete-screen'),
     sessionTimeLabel: document.getElementById('session-time'),
+    targetCountDisplay: document.getElementById('target-count-display'),
+    completeRepsDisplay: document.getElementById('complete-reps-display'),
     unlockBtn: document.getElementById('unlock-btn'),
     unlockStatus: document.getElementById('unlock-status'),
     backToSessionBtn: document.getElementById('back-to-session-btn')
   };
 
   // ============================================
-  // 初期化・コアロジック
+  // ユーティリティ
   // ============================================
-
-  async function init() {
-    debugLog(`[THE TOLL] アプリ初期化 ${APP_VERSION}`);
-    
-    // PWAインストールプロンプトの準備
-    window.addEventListener('beforeinstallprompt', (e) => {
-      e.preventDefault();
-      state.deferredPrompt = e;
-      debugLog('PWA Install Prompt captured');
-      if (elements.installBtn) elements.installBtn.classList.remove('hidden');
-    });
-
-    // ロゴクリックでデバッグ表示切り替え
-    document.querySelectorAll('.logo').forEach(el => {
-      el.style.display = 'block'; // ロゴを表示（デバッグ用）
-      el.onclick = () => {
-        const d = document.getElementById('debug-console');
-        d.style.display = d.style.display === 'none' ? 'block' : 'none';
-      };
-    });
-    
-    // Supabase初期化
-    try {
-      state.supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-      debugLog('Supabase initialized');
-    } catch(e) {
-      debugLog('Supabase init error: ' + e.message);
-    }
-
-    // イベントリスナー設定
-    setupEventListeners();
-    
-    // 認証状態の監視
-    state.supabase.auth.onAuthStateChange((event, session) => {
-      debugLog(`Auth change: ${event}`);
-      if (session) {
-        state.user = session.user;
-        updateUserInfo(session.user);
-      } else {
-        state.user = null;
-        showAuthForm();
-      }
-    });
-
-    // PWA QRスキャナー初期化
-    if (typeof Html5Qrcode !== 'undefined') {
-      try {
-        state.html5QrCode = new Html5Qrcode("qr-reader");
-        debugLog('QR Scanner initialized');
-      } catch(e) {
-        debugLog('QR init error: ' + e.message);
-      }
-    } else {
-      debugLog('CRITICAL: Html5Qrcode library not found');
-      alert('QRコードライブラリが読み込まれていません。ネットワーク状況を確認してください。');
-    }
-
-    // URLパラメータチェック
-    const params = new URLSearchParams(window.location.search);
-    const sessionSid = params.get('session');
-    if (sessionSid) {
-      debugLog(`Session from URL: ${sessionSid}`);
-      elements.sessionInput.value = sessionSid;
-      // 古いセッションが残らないよう、URLからパラメータを削除
-      try {
-        window.history.replaceState({}, document.title, window.location.pathname);
-        debugLog('URL parameters cleared');
-      } catch(e) {
-        debugLog('URL clear failed: ' + e.message);
-      }
-    } else {
-        // セッション入力フィールドをクリア（古いキャッシュ対策の念押し）
-        elements.sessionInput.value = '';
-    }
-
-    // 最初のユーザー操作でAudioContextを初期化
-    document.addEventListener('click', () => {
-      if (!state.audioContext) {
-        state.audioContext = new (window.AudioContext || window.webkitAudioContext)();
-        debugLog('AudioContext initialized');
-      }
-    }, { once: true });
-  }
-
-  function setupEventListeners() {
-    // 認証
-    elements.loginBtn.addEventListener('click', handleLogin);
-    elements.signupBtn.addEventListener('click', handleSignup);
-    elements.logoutBtn.addEventListener('click', handleLogout);
-    elements.subscribeBtn.addEventListener('click', handleSubscribe);
-    if (elements.installBtn) {
-      elements.installBtn.addEventListener('click', async () => {
-        if (state.deferredPrompt) {
-          state.deferredPrompt.prompt();
-          const { outcome } = await state.deferredPrompt.userChoice;
-          debugLog(`Install prompt outcome: ${outcome}`);
-          state.deferredPrompt = null;
-          elements.installBtn.classList.add('hidden');
-        }
-      });
-    }
-    elements.toSessionBtn.addEventListener('click', () => showScreen('session-screen'));
-    
-    // セッション画面のログアウト
-    const sessionLogoutBtn = document.getElementById('session-logout-btn');
-    if (sessionLogoutBtn) {
-      sessionLogoutBtn.addEventListener('click', (e) => {
-        e.preventDefault();
-        handleLogout();
-      });
-    }
-
-    // セッション・QR
-    elements.startBtn.addEventListener('click', () => startSession());
-    elements.scanQrBtn.addEventListener('click', () => startQRScan());
-    elements.closeScanBtn.addEventListener('click', () => stopQRScan());
-    elements.sessionInput.addEventListener('keypress', (e) => {
-      if (e.key === 'Enter') startSession();
-    });
-    
-    // セッションID自動フォーマット
-    elements.sessionInput.addEventListener('input', (e) => {
-      let value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
-      if (value.length > 4) value = value.slice(0, 4) + '-' + value.slice(4, 12);
-      e.target.value = value;
-    });
-
-    // 完了
-    elements.unlockBtn.addEventListener('click', sendUnlockSignal);
-    if (elements.backToSessionBtn) {
-      elements.backToSessionBtn.addEventListener('click', (e) => {
-        e.preventDefault();
-        // セッション情報をクリア
-        elements.sessionInput.value = '';
-        state.sessionId = null;
-        // アンロックボタンの状態も戻しておく
-        elements.unlockBtn.disabled = false;
-        elements.unlockBtn.innerHTML = '<span>UNLOCK PC</span>';
-        elements.unlockStatus.textContent = '';
-        
-        showScreen('session-screen');
-      });
+  function debugLog(msg) {
+    console.log(msg);
+    const debugEl = document.getElementById('debug-console');
+    if (debugEl) {
+      const line = document.createElement('div');
+      line.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+      debugEl.prepend(line);
     }
   }
 
-  // ============================================
-  // 画面管理
-  // ============================================
+  function updateStatus(text) { elements.statusLabel.textContent = text; }
+
   function showScreen(screenId) {
     document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
     document.getElementById(screenId).classList.add('active');
-  }
-
-  function showAuthForm() {
-    elements.authForm.classList.remove('hidden');
-    elements.userInfo.classList.add('hidden');
-    showScreen('auth-screen');
   }
 
   // ============================================
   // 認証・サブスク
   // ============================================
   async function updateUserInfo(user) {
-    debugLog(`[V2.4] Updating info for: ${user.email}`);
+    debugLog(`Updating info for: ${user.email}`);
     elements.userDisplayEmail.textContent = `ログイン中: ${user.email}`;
     elements.authForm.classList.add('hidden');
     elements.userInfo.classList.remove('hidden');
     
     try {
-      debugLog('Fetching profile...');
       const { data: profile, error } = await state.supabase
         .from('profiles')
         .select('subscription_status')
         .eq('id', user.id)
         .single();
         
-      if (error) {
-        debugLog('Profile fetch error: ' + error.message);
-        // リセット直後などでプロファイルがまだない場合、作成を待つかデフォルト値を採用
-      }
+      if (error) debugLog('Profile fetch error: ' + error.message);
 
       const status = profile?.subscription_status || 'inactive';
       state.subscriptionStatus = status;
-      debugLog(`Subscription status from DB: ${status}`);
       
       elements.subscriptionStatusBadge.textContent = `会員ステータス: ${status === 'active' ? '✅ 有料会員' : '❌ 未登録'}`;
       elements.subscriptionStatusBadge.className = status === 'active' ? 'status-active' : 'status-inactive';
@@ -453,10 +120,7 @@
         elements.subscribeBtn.classList.add('hidden');
         elements.toSessionBtn.disabled = false;
         elements.toSessionBtn.textContent = 'PC連携へ進む';
-        
-        // 認証画面にいる場合は自動遷移
         if (elements.authScreen.classList.contains('active')) {
-          debugLog('Active user: auto-redirecting to session-screen');
           setTimeout(() => showScreen('session-screen'), 500);
         }
       } else {
@@ -464,7 +128,6 @@
         elements.toSessionBtn.disabled = true;
         elements.toSessionBtn.textContent = 'サブスク登録が必要です';
       }
-      // ログアウトボタンは常に表示（親要素が表示されているため）
     } catch (e) {
       debugLog('Profile logic crash: ' + e.message);
     }
@@ -483,97 +146,30 @@
     const password = elements.passwordInput.value;
     if (!email || !password) return alert('メールとパスワードを入力してください');
     const { error, data } = await state.supabase.auth.signUp({ 
-      email, 
-      password,
-      options: { emailRedirectTo: window.location.origin }
+      email, password, options: { emailRedirectTo: window.location.origin }
     });
     if (error) alert('登録失敗: ' + error.message);
     else if (data.session) alert('アカウントを作成しました。自動ログインします。');
     else alert('確認メールを送信しました。');
   }
 
-  async function handleLogout() {
-    await state.supabase.auth.signOut();
-  }
-
+  async function handleLogout() { await state.supabase.auth.signOut(); }
 
   async function handleSubscribe() {
-    debugLog('Starting subscription flow...');
     try {
-      // invokesは通常内部で認証ヘッダーを付与するが、念のため明示的に指定
       const { data, error } = await state.supabase.functions.invoke('create-checkout', {
-        headers: {
-            'Content-Type': 'application/json'
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: {}
       });
-      
-      if (error) {
-        debugLog('Subscription function error: ' + error.message);
-        throw error;
-      }
-      
-      if (data?.url) {
-        debugLog('Redirecting to checkout: ' + data.url);
-        window.location.href = data.url;
-      } else {
-        debugLog('No checkout URL returned: ' + JSON.stringify(data));
-        alert('決済URLの取得に失敗しました。');
-      }
-    } catch (e) {
-      debugLog('Subscription fetch failed: ' + e.message);
-      alert('決済の準備に失敗しました。ネットワークを確認してください。');
-    }
+      if (data?.url) window.location.href = data.url;
+      else alert('決済URLの取得に失敗しました。');
+    } catch (e) { alert('決済の準備に失敗しました。'); }
   }
 
   // ============================================
-  // QRスキャナー
+  // セッション・QR
   // ============================================
-  async function startQRScan() {
-    if (!state.html5QrCode) {
-      alert("QRスキャナーの初期化に失敗しています。ページを更新してください。");
-      return;
-    }
-
-    elements.qrReaderContainer.classList.remove('hidden');
-    
-    try {
-      await state.html5QrCode.start(
-        { facingMode: "environment" }, 
-        { fps: 10, qrbox: { width: 250, height: 250 } }, // オブジェクト形式で指定
-        (decodedText) => {
-          debugLog(`QR Scanned: ${decodedText}`);
-          let sid = decodedText;
-          if (decodedText.includes('session=')) {
-            sid = decodedText.split('session=')[1].split('&')[0];
-          } else if (decodedText.includes('session/')) {
-            sid = decodedText.split('session/')[1].split('?')[0];
-          }
-          debugLog(`Parsed Session ID: ${sid}`);
-          elements.sessionInput.value = sid;
-          stopQRScan();
-          startSession(sid);
-        },
-        () => {}
-      );
-    } catch (err) {
-      console.error("QRスキャンエラー:", err);
-      alert("カメラの起動に失敗しました。権限が許可されているか確認してください。 (Error: " + err.message + ")");
-      elements.qrReaderContainer.classList.add('hidden');
-    }
-  }
-
-  async function stopQRScan() {
-    if (state.html5QrCode) {
-      try { await state.html5QrCode.stop(); } catch (e) {}
-    }
-    elements.qrReaderContainer.classList.add('hidden');
-  }
-
-  // ============================================
-  // セッション・PC連携
-  // ============================================
-  async function startSession(sid) {
+  function startSession(sid, targetFromUrl) {
     const sessionId = sid || elements.sessionInput.value.trim().toUpperCase();
     if (!sessionId || sessionId.length < 4) return alert('セッションIDを入力してください');
     
@@ -582,53 +178,99 @@
     state.startTime = Date.now();
     elements.currentSessionLabel.textContent = sessionId;
     elements.squatCountLabel.textContent = '0';
+
+    // Settings Guard用の特別ID判定
+    if (sessionId.startsWith('SET-')) {
+      state.targetCount = 30;
+      debugLog('SETTINGS LOCK MISSION: 30 REPS');
+    } else if (targetFromUrl) {
+      const parsed = parseInt(targetFromUrl);
+      if (!isNaN(parsed) && parsed > 0) {
+        state.targetCount = parsed;
+        debugLog('Target from URL: ' + state.targetCount);
+      }
+    }
+    // else: state.targetCount keeps its value set in init()
+    
+    // UI反映 (必ず実行)
+    if (elements.targetCountDisplay) elements.targetCountDisplay.textContent = state.targetCount;
+    if (elements.completeRepsDisplay) elements.completeRepsDisplay.textContent = state.targetCount;
     
     showScreen('squat-screen');
-    initMediaPipe().catch(() => updateStatus('❌', 'カメラエラー'));
+    initMediaPipe().catch(err => debugLog('Camera error: ' + err.message));
+  }
+
+  async function startQRScan() {
+    if (!state.html5QrCode) return alert("スキャナー初期化失敗");
+    elements.qrReaderContainer.classList.remove('hidden');
+    try {
+      await state.html5QrCode.start(
+        { facingMode: "environment" }, 
+        { fps: 10, qrbox: { width: 250, height: 250 } },
+        (decodedText) => {
+          let sid = decodedText;
+          let target = null;
+          
+          // URLからsessionとtargetを抽出
+          // URLからsessionとtargetを抽出
+          if (decodedText.startsWith('http')) {
+            try {
+              const url = new URL(decodedText);
+              sid = url.searchParams.get('session') || sid;
+              target = url.searchParams.get('target');
+            } catch (e) {
+              debugLog('URL parse error: ' + e.message);
+            }
+          } else if (decodedText.includes('session=')) {
+             // フォールバック: 単純な文字列解析
+             const parts = decodedText.split('?');
+             const params = new URLSearchParams(parts[1] || parts[0]);
+             sid = params.get('session') || sid;
+             target = params.get('target');
+          }
+          
+          elements.sessionInput.value = sid;
+          stopQRScan();
+          startSession(sid, target);
+        }, () => {}
+      );
+    } catch (err) { alert("カメラ起動失敗"); elements.qrReaderContainer.classList.add('hidden'); }
+  }
+
+  async function stopQRScan() {
+    if (state.html5QrCode) { 
+      try { 
+        if (state.html5QrCode.isScanning) {
+          await state.html5QrCode.stop(); 
+        }
+      } catch (e) {
+        debugLog('QR Stop error: ' + e.message);
+      } 
+    }
+    elements.qrReaderContainer.classList.add('hidden');
   }
 
   async function sendUnlockSignal() {
     elements.unlockBtn.disabled = true;
     elements.unlockStatus.textContent = '送信中...';
-    debugLog(`[V2.5] Sending unlock signal (RPC) for ID: [${state.sessionId}]`);
-    
     try {
-      // RPCを使用してアンロック（RLS回避）
-      const { data, error } = await state.supabase
-        .rpc('unlock_session', { session_id: state.sessionId });
-      
-      debugLog(`RPC Result: ${JSON.stringify(data)}`);
-      
-      if (error) {
-        debugLog('RPC Error: ' + error.message);
-        throw error;
-      }
-      
+      const { data, error } = await state.supabase.rpc('unlock_session', { session_id: state.sessionId });
       if (data && data.success) {
-        debugLog('Unlock SUCCESS');
         elements.unlockStatus.textContent = '✅ アンロック成功！';
         elements.unlockBtn.innerHTML = '<span>SUCCESS</span>';
       } else {
-        debugLog('RPC failed: ' + JSON.stringify(data));
-        elements.unlockStatus.textContent = '⚠️ セッションが見つかりません';
+        elements.unlockStatus.textContent = '⚠️ セッションなし';
         elements.unlockBtn.disabled = false;
-        alert('セッションが見つかりませんでした。QRコードを読み直してください。');
       }
-    } catch (e) {
-      debugLog('Unlock Exception: ' + e.message);
-      elements.unlockStatus.textContent = '❌ 送信失敗';
-      elements.unlockBtn.disabled = false;
-    }
+    } catch (e) { elements.unlockStatus.textContent = '❌ 送信失敗'; elements.unlockBtn.disabled = false; }
   }
 
   // ============================================
   // スクワット検出 (MediaPipe)
   // ============================================
   async function initMediaPipe() {
-    updateStatus('⏳', 'AI読み込み中...');
-    const pose = new Pose({
-      locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`
-    });
+    updateStatus('AI読み込み中...');
+    const pose = new Pose({ locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}` });
     pose.setOptions({ modelComplexity: 0, smoothLandmarks: true, minDetectionConfidence: 0.5, minTrackingConfidence: 0.5 });
     pose.onResults(onPoseResults);
 
@@ -636,9 +278,9 @@
       onFrame: async () => { await pose.send({ image: elements.camera }); },
       facingMode: 'user'
     });
+    state.poseCamera = camera;
     await camera.start();
     
-    // Wait for video dimensions
     await new Promise(r => {
       const check = () => elements.camera.videoWidth ? r() : requestAnimationFrame(check);
       check();
@@ -651,21 +293,11 @@
   function onPoseResults(results) {
     const ctx = elements.canvas.getContext('2d');
     ctx.clearRect(0, 0, elements.canvas.width, elements.canvas.height);
-    
-    if (!results.poseLandmarks) {
-      updateStatus('NO PERSON');
-      elements.guide.classList.remove('hidden');
-      return;
-    }
+    if (!results.poseLandmarks) { updateStatus('NO PERSON'); elements.guide.classList.remove('hidden'); return; }
 
     const lm = results.poseLandmarks;
-    const minVis = 0.5;
     const landmarks = [lm[23], lm[25], lm[27], lm[24], lm[26], lm[28]];
-    if (landmarks.some(l => l.visibility < minVis)) {
-      updateStatus('SHOW BODY');
-      elements.guide.classList.remove('hidden');
-      return;
-    }
+    if (landmarks.some(l => l.visibility < 0.5)) { updateStatus('SHOW BODY'); elements.guide.classList.remove('hidden'); return; }
     
     elements.guide.classList.add('hidden');
     drawPose(ctx, lm, elements.canvas.width, elements.canvas.height);
@@ -673,26 +305,18 @@
     const leftAngle = calculateAngle(lm[23], lm[25], lm[27]);
     const rightAngle = calculateAngle(lm[24], lm[26], lm[28]);
 
-    // 両足が105度未満になったら「しゃがみ」と判定
     if (!state.isSquatting && leftAngle < 105 && rightAngle < 105) {
       state.isSquatting = true;
       playSoundSquatDown();
-      updateStatus('SQUAT DETECTED');
-      elements.camera.classList.add('squat-down');
-    } 
-    // 両足が165度以上になったら「立ち上がり」と判定してカウント
-    else if (state.isSquatting && leftAngle > 165 && rightAngle > 165) {
+      updateStatus('DOWN');
+    } else if (state.isSquatting && leftAngle > 165 && rightAngle > 165) {
       state.isSquatting = false;
       state.squatCount++;
       elements.squatCountLabel.textContent = state.squatCount;
-      elements.camera.classList.remove('squat-down');
-      
-      // 音声カウント（英語）
       speakText(state.squatCount.toString());
       
       if (state.squatCount >= state.targetCount) {
         playSoundComplete();
-        speakText("Target achieved. Challenge complete.");
         onSquatComplete();
       } else {
         playSoundCount();
@@ -708,41 +332,33 @@
   }
 
   function drawPose(ctx, lm, w, h) {
-    ctx.strokeStyle = '#CCFF00'; // Volt
-    ctx.lineWidth = 4;
-    const conn = [[11,13],[13,15],[12,14],[14,16],[11,12],[11,23],[12,24],[23,24],[23,25],[25,27],[24,26],[26,28]];
-    conn.forEach(([a, b]) => {
-      ctx.beginPath();
-      ctx.moveTo(lm[a].x * w, lm[a].y * h);
-      ctx.lineTo(lm[b].x * w, lm[b].y * h);
-      ctx.stroke();
-    });
-
-    // 関節ポイントの描画
-    const points = [11, 12, 13, 14, 15, 16, 23, 24, 25, 26, 27, 28];
-    ctx.fillStyle = '#ffffff';
-    points.forEach(i => {
-      ctx.beginPath();
-      ctx.arc(lm[i].x * w, lm[i].y * h, 5, 0, Math.PI * 2);
-      ctx.fill();
-      // 外側に少し光らせる
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
-      ctx.lineWidth = 1;
-      ctx.stroke();
+    ctx.strokeStyle = '#CCFF00'; ctx.lineWidth = 4;
+    [[11,13],[13,15],[12,14],[14,16],[11,12],[11,23],[12,24],[23,24],[23,25],[25,27],[24,26],[26,28]].forEach(([a, b]) => {
+      ctx.beginPath(); ctx.moveTo(lm[a].x * w, lm[a].y * h); ctx.lineTo(lm[b].x * w, lm[b].y * h); ctx.stroke();
     });
   }
 
-  function updateStatus(text) { elements.statusLabel.textContent = text; }
-  
-  function onSquatComplete() {
+  async function onSquatComplete() {
     const now = Date.now();
     const time = state.startTime ? Math.round((now - state.startTime) / 1000) : '--';
     elements.sessionTimeLabel.textContent = time;
+    
+    // カメラを停止
+    if (state.poseCamera) {
+      try {
+        await state.poseCamera.stop();
+        state.poseCamera = null;
+        debugLog('Pose camera stopped.');
+      } catch (e) {
+        debugLog('Pose camera stop error: ' + e.message);
+      }
+    }
+    
     showScreen('complete-screen');
   }
 
   // ============================================
-  // 音声 (Web Audio)
+  // 音声 & 初期化
   // ============================================
   function playTone(f, d, t = 'sine', v = 0.3) {
     if (!state.audioContext) return;
@@ -756,19 +372,90 @@
 
   function speakText(text) {
     if (!window.speechSynthesis) return;
-    // 既存の発話をキャンセルして遅延を防ぐ
     window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = 'en-US';
-    utterance.rate = 1.1; // 少し速めに
-    utterance.pitch = 1.0;
-    window.speechSynthesis.speak(utterance);
+    const utter = new SpeechSynthesisUtterance(text);
+    utter.lang = 'en-US'; utter.rate = 1.1;
+    window.speechSynthesis.speak(utter);
   }
 
   const playSoundCount = () => playTone(440 + (state.squatCount * 50), 0.15);
   const playSoundComplete = () => [523, 659, 783, 1046].forEach((f, i) => setTimeout(() => playTone(f, 0.3), i * 100));
   const playSoundSquatDown = () => playTone(600, 0.08);
 
-  // START
+  function clearSession() {
+    debugLog('Clearing session data...');
+    state.sessionId = null;
+    state.squatCount = 0;
+    state.startTime = null;
+    state.isSquatting = false;
+
+    // UIリセット
+    elements.sessionInput.value = '';
+    elements.currentSessionLabel.textContent = '-';
+    elements.squatCountLabel.textContent = '0';
+    elements.sessionTimeLabel.textContent = '--';
+    elements.unlockStatus.textContent = '';
+    elements.unlockBtn.disabled = false;
+    elements.unlockBtn.innerHTML = '<span>UNLOCK PC</span>';
+    updateStatus('READY');
+
+    // カメラを完全に停止
+    if (state.poseCamera) {
+      state.poseCamera.stop().catch(() => {});
+      state.poseCamera = null;
+      debugLog('Pose camera stopped in clearSession.');
+    }
+  }
+
+  async function init() {
+    debugLog(`[THE TOLL] 初期化 ${APP_VERSION}`);
+    
+    state.supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    state.supabase.auth.onAuthStateChange((event, session) => {
+      if (session) { state.user = session.user; updateUserInfo(session.user); }
+      else { state.user = null; showAuthForm(); }
+    });
+
+    try { state.html5QrCode = new Html5Qrcode("qr-reader"); } catch(e) {}
+
+    // イベントリスナー
+    elements.loginBtn.onclick = handleLogin;
+    elements.signupBtn.onclick = handleSignup;
+    elements.logoutBtn.onclick = handleLogout;
+    elements.subscribeBtn.onclick = handleSubscribe;
+    elements.toSessionBtn.onclick = () => showScreen('session-screen');
+    elements.startBtn.onclick = () => startSession();
+    elements.scanQrBtn.onclick = () => startQRScan();
+    elements.closeScanBtn.onclick = () => stopQRScan();
+    elements.unlockBtn.onclick = sendUnlockSignal;
+    elements.backToSessionBtn.onclick = (e) => {
+      e.preventDefault();
+      clearSession();
+      showScreen('session-screen');
+    };
+
+    // URLパラメータ
+    const urlParams = new URLSearchParams(window.location.search);
+    const sid = urlParams.get('session');
+    const target = urlParams.get('target');
+    
+    if (target) {
+      const parsed = parseInt(target);
+      if (!isNaN(parsed) && parsed > 0) {
+        state.targetCount = parsed;
+        debugLog('Target count from URL: ' + state.targetCount);
+      }
+    }
+
+    if (sid) {
+      elements.sessionInput.value = sid;
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+
+    document.addEventListener('click', () => {
+      if (!state.audioContext) state.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    }, { once: true });
+  }
+
   init();
 })();

@@ -121,11 +121,13 @@
   // オーバーレイ作成
   // ============================================
   
-  function createOverlay(sessionId) {
+  async function createOverlay(sessionId) {
     const overlay = document.createElement('div');
     overlay.id = 'toll-overlay';
     
-    const appUrl = `${SMARTPHONE_APP_URL}?session=${sessionId}`;
+    const settings = await chrome.storage.local.get('target_squat_count');
+    const targetCount = settings.target_squat_count || 5;
+    const appUrl = `${SMARTPHONE_APP_URL}?session=${sessionId}&target=${targetCount}`;
     
     overlay.innerHTML = `
       <div class="toll-container">
@@ -133,7 +135,7 @@
         <p class="toll-subtitle">SELF-DISCIPLINE SYSTEM</p>
         
         <div class="toll-instruction">
-          <p class="toll-instruction-text">Complete <strong>5</strong> squats on your phone to unlock</p>
+          <p class="toll-instruction-text">Complete <strong>${targetCount}</strong> squats on your phone to unlock</p>
         </div>
         
         <div class="toll-qr-section">
@@ -285,7 +287,7 @@
   }
 
   // ページをロック状態にする
-  function lockPage() {
+  async function lockPage() {
     const overlay = document.getElementById('toll-overlay');
     if (isLocked && overlay) return;
     
@@ -296,7 +298,7 @@
     if (!overlay) {
       const sessionId = getOrCreateSessionId();
       debugLog('Creating overlay for session: ' + sessionId);
-      const newOverlay = createOverlay(sessionId);
+      const newOverlay = await createOverlay(sessionId);
       
       // 監視と制限を開始
       forcePause();
