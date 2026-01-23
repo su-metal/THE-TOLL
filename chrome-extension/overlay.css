@@ -1,4 +1,4 @@
-/* THE TOLL - ブロックオーバーレイのスタイル */
+/* THE TOLL - ブロックオーバーレイ（2026トレンドUI） */
 
 #toll-overlay {
   position: fixed;
@@ -6,31 +6,42 @@
   left: 0;
   width: 100vw;
   height: 100vh;
-  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+  background: #000;
   z-index: 2147483647;
   display: flex;
   flex-direction: column;
   justify-content: center;
   align-items: center;
-  font-family: 'Segoe UI', 'Hiragino Sans', 'Meiryo', sans-serif;
-  color: #ffffff;
+  font-family: 'SF Pro Display', 'Segoe UI', 'Hiragino Sans', sans-serif;
+  color: #f0f0f0;
   overflow: hidden;
 }
 
+/* ジム背景画像 - JSで動的に設定 */
 #toll-overlay::before {
   content: '';
   position: absolute;
-  top: -50%;
-  left: -50%;
-  width: 200%;
-  height: 200%;
-  background: radial-gradient(circle, rgba(233, 69, 96, 0.1) 0%, transparent 50%);
-  animation: pulse 4s ease-in-out infinite;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-image: var(--toll-bg-image);
+  background-size: cover;
+  background-position: center;
+  opacity: 0.85;
+  z-index: -2;
 }
 
-@keyframes pulse {
-  0%, 100% { transform: scale(1); opacity: 0.5; }
-  50% { transform: scale(1.1); opacity: 0.8; }
+/* 軽い暗めオーバーレイ */
+#toll-overlay::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(180deg, rgba(0,0,0,0.3) 0%, rgba(0,0,0,0.5) 50%, rgba(0,0,0,0.6) 100%);
+  z-index: -1;
 }
 
 #toll-overlay .toll-container {
@@ -38,126 +49,161 @@
   z-index: 1;
   text-align: center;
   padding: 40px;
-  max-width: 500px;
+  max-width: 420px;
 }
 
+/* アイコン非表示 */
 #toll-overlay .toll-icon {
-  font-size: 80px;
-  margin-bottom: 20px;
-  animation: bounce 2s ease-in-out infinite;
+  display: none;
 }
 
-@keyframes bounce {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-15px); }
-}
-
+/* タイトル - 2026トレンド */
 #toll-overlay h1 {
-  font-size: 2.5rem;
+  font-family: 'SF Pro Display', 'Arial Black', sans-serif;
+  font-size: 3.5rem;
+  font-weight: 800;
   margin: 0 0 10px 0;
-  background: linear-gradient(90deg, #e94560, #ff6b6b);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  color: #ffffff;
+  letter-spacing: 10px;
+  text-transform: uppercase;
 }
 
 #toll-overlay .toll-subtitle {
-  font-size: 1.2rem;
-  color: #a0a0a0;
-  margin-bottom: 30px;
+  font-size: 0.8rem;
+  color: #666;
+  margin-bottom: 50px;
+  text-transform: uppercase;
+  letter-spacing: 4px;
+  font-weight: 400;
 }
 
+/* メッセージカード - グラスモーフィズム */
 #toll-overlay .toll-instruction {
-  font-size: 1.5rem;
-  color: #ffffff;
-  margin-bottom: 30px;
-  padding: 20px;
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 15px;
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  margin-bottom: 40px;
+  padding: 30px;
+  background: rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-radius: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+#toll-overlay .toll-instruction-text {
+  font-size: 1.1rem;
+  color: #e0e0e0;
+  line-height: 1.6;
+  margin: 0;
 }
 
 #toll-overlay .toll-instruction strong {
-  color: #e94560;
-  font-size: 2rem;
+  color: #ff3333;
+  font-size: 1.8rem;
+  font-weight: 700;
 }
 
 #toll-overlay .toll-qr-section {
-  margin: 30px 0;
+  margin: 40px 0;
 }
 
 #toll-overlay .toll-qr-label {
-  font-size: 1rem;
-  color: #a0a0a0;
-  margin-bottom: 15px;
+  font-size: 0.7rem;
+  color: #555;
+  margin-bottom: 20px;
+  text-transform: uppercase;
+  letter-spacing: 2px;
 }
 
+/* QRコード - グラスモーフィズム枠 */
 #toll-overlay .toll-qr-container {
-  display: inline-block;
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
   padding: 20px;
-  background: #ffffff;
-  border-radius: 15px;
-  box-shadow: 0 10px 40px rgba(233, 69, 96, 0.3);
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 20px;
+  box-shadow: 
+    0 20px 60px rgba(0, 0, 0, 0.5),
+    0 0 40px rgba(100, 0, 0, 0.2);
+  overflow: hidden;
 }
 
 #toll-overlay #toll-qrcode {
-  width: 180px;
-  height: 180px;
+  width: 160px;
+  height: 160px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
 }
 
+#toll-overlay #toll-qrcode img,
+#toll-overlay #toll-qrcode canvas {
+  max-width: 100%;
+  max-height: 100%;
+  display: block;
+}
+
+/* セッション情報 - グラスモーフィズム */
 #toll-overlay .toll-session {
-  margin-top: 30px;
-  padding: 15px 25px;
-  background: rgba(255, 255, 255, 0.05);
-  border-radius: 10px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  margin-top: 40px;
+  padding: 18px 30px;
+  background: rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  display: inline-block;
 }
 
 #toll-overlay .toll-session-label {
-  font-size: 0.9rem;
-  color: #a0a0a0;
+  font-size: 0.65rem;
+  color: #555;
   margin-bottom: 8px;
+  text-transform: uppercase;
+  letter-spacing: 2px;
 }
 
 #toll-overlay .toll-session-id {
-  font-family: 'Consolas', 'Monaco', monospace;
-  font-size: 1.2rem;
-  color: #4ecca3;
-  letter-spacing: 2px;
+  font-family: 'SF Mono', 'Consolas', monospace;
+  font-size: 1.4rem;
+  color: #cc0000;
+  letter-spacing: 4px;
   user-select: all;
 }
 
 #toll-overlay .toll-status {
-  margin-top: 25px;
-  font-size: 0.95rem;
-  color: #666;
+  margin-top: 35px;
+  font-size: 0.8rem;
+  color: #555;
+  padding: 10px 20px;
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 8px;
+  display: inline-block;
 }
 
 #toll-overlay .toll-status.connecting {
-  color: #ffa500;
+  color: #cc6600;
 }
 
 #toll-overlay .toll-status.connected {
-  color: #4ecca3;
+  color: #22cc66;
 }
 
 #toll-overlay .toll-status.unlocking {
-  color: #e94560;
-  animation: blink 0.5s ease-in-out infinite;
+  color: #ff3333;
+  animation: pulse 1s ease-in-out infinite;
 }
 
-@keyframes blink {
+@keyframes pulse {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.5; }
 }
 
-/* アンロック成功アニメーション */
+/* アンロックアニメーション */
 #toll-overlay.unlocking {
-  animation: fadeOut 0.5s ease-out forwards;
+  animation: unlock 0.5s ease-out forwards;
 }
 
-@keyframes fadeOut {
+@keyframes unlock {
   0% { opacity: 1; transform: scale(1); }
-  100% { opacity: 0; transform: scale(1.1); }
+  100% { opacity: 0; transform: scale(1.02); }
 }

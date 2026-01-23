@@ -4,33 +4,105 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
   <title>THE TOLL - スクワットチャレンジ</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;700&family=Roboto+Mono:wght@400;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
   <!-- MediaPipe Pose -->
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js" crossorigin="anonymous"></script>
+  <!-- PWA -->
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#CCFF00">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="THE TOLL">
+  <link rel="apple-touch-icon" href="icons/icon-512.png">
+  <!-- QR Scanner -->
+  <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
   <!-- Supabase -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 </head>
 <body>
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js')
+          .then(reg => console.log('[THE TOLL] SW registered:', reg))
+          .catch(err => console.error('[THE TOLL] SW registration failed:', err));
+      });
+    }
+  </script>
   <div id="app">
-    <!-- セッションID入力画面 -->
-    <div id="session-screen" class="screen active">
+    <!-- 認証画面 ... -->
+    
+    <!-- 17: (skipped unchanged lines) -->
+    <!-- 認証画面 -->
+    <div id="auth-screen" class="screen active">
       <div class="container">
-        <div class="logo">🏋️</div>
         <h1>THE TOLL</h1>
-        <p class="subtitle">スクワットでPCをアンロック</p>
+        <p class="subtitle">Self Control System</p>
+        
+        <div id="auth-form">
+          <div class="input-group">
+            <label for="email-input">EMAIL</label>
+            <input type="email" id="email-input" placeholder="user@example.com">
+          </div>
+          <div class="input-group">
+            <label for="password-input">PASSWORD</label>
+            <input type="password" id="password-input" placeholder="••••••••">
+          </div>
+          <div class="auth-buttons">
+            <button id="login-btn" class="btn primary">LOGIN</button>
+            <button id="signup-btn" class="btn secondary">REGISTER</button>
+          </div>
+        </div>
+        
+        <div id="user-info" class="hidden">
+          <p id="user-display-email" class="session-id-display"></p>
+          <div id="subscription-status-badge"></div>
+          
+          <button id="install-btn" class="btn secondary hidden">INSTALL APP</button>
+          <button id="subscribe-btn" class="btn primary">SUBSCRIBE ($49/YEAR)</button>
+          
+          <button id="to-session-btn" class="btn secondary">ENTER SESSION</button>
+          <button id="logout-btn" class="text-btn">LOGOUT</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- セッションID入力画面 -->
+    <div id="session-screen" class="screen">
+      <div class="container">
+        <h1>THE TOLL</h1>
+        <p class="subtitle">Unlock Your Device</p>
         
         <div class="input-group">
-          <label for="session-input">セッションIDを入力</label>
+          <label for="session-input">SESSION ID</label>
           <input type="text" id="session-input" placeholder="XXXX-XXXX" maxlength="9" autocomplete="off">
         </div>
         
-        <button id="start-btn" class="primary-btn">
-          <span>🎬 チャレンジ開始</span>
-        </button>
+        <div class="session-buttons">
+          <button id="start-btn" class="btn primary">
+            START CHALLENGE
+          </button>
+          
+          <button id="scan-qr-btn" class="btn secondary">
+            SCAN QR CODE
+          </button>
+        </div>
         
-        <p class="hint">PCに表示されているセッションIDを入力してください</p>
+        <p class="subtitle" style="margin-top: 20px;">Enter the ID displayed on your PC</p>
+        
+        <a href="#" id="session-logout-btn" class="text-btn">Logout from this account</a>
+        <a href="#" onclick="forceReset(); return false;" class="text-btn" style="display:block; margin-top:10px; opacity: 0.5;">System Reset (v2.11)</a>
+      </div>
+
+      <!-- QRスキャナーオーバーレイ -->
+      <div id="qr-reader-container" class="hidden">
+        <div id="qr-reader"></div>
+        <button id="close-scan-btn" class="btn secondary" style="width: auto; margin-top: 20px;">CANCEL</button>
       </div>
     </div>
 
@@ -40,55 +112,89 @@
         <video id="camera" autoplay muted playsinline></video>
         <canvas id="pose-canvas"></canvas>
         
-        <!-- オーバーレイUI -->
         <div class="overlay-ui">
-          <div class="counter-display">
-            <span class="count" id="squat-count">0</span>
-            <span class="total">/ 5</span>
+          <div class="hud-top">
+            <div class="session-id-display">SESSION: <span id="current-session">-</span></div>
+            <div class="hud-status" id="status">READY</div>
+          </div>
+
+          <div class="hud-center">
+             <div class="squat-counter"><span id="squat-count">0</span><span class="squat-total">/20</span></div>
           </div>
           
-          <div class="status-indicator" id="status">
-            <span class="icon">🔴</span>
-            <span class="text">準備中...</span>
+          
+          <div class="hud-bottom">
+            <div class="squat-guide" id="squat-hint">SQUAT DEEP</div>
           </div>
         </div>
         
-        <!-- ガイドライン -->
         <div class="guide-overlay" id="guide">
-          <div class="guide-text">
-            全身が映るように<br>立ってください
+          <div class="squat-guide">
+            STAND BACK<br>SHOW FULL BODY
           </div>
-        </div>
-      </div>
-      
-      <div class="bottom-panel">
-        <div class="session-info">
-          セッション: <span id="current-session">-</span>
-        </div>
-        <div class="squat-hint" id="squat-hint">
-          しっかり膝を曲げてスクワットしてください
         </div>
       </div>
     </div>
 
     <!-- 完了画面 -->
     <div id="complete-screen" class="screen">
-      <div class="container">
-        <div class="success-animation">
-          <div class="checkmark">✅</div>
+      <div class="container complete-container">
+        <div class="complete-ring">
+          <div class="check-mark">✓</div>
         </div>
-        <h1>チャレンジ完了！</h1>
-        <p class="subtitle">スクワット5回達成</p>
         
-        <button id="unlock-btn" class="primary-btn success">
-          <span>🔓 PCをアンロック</span>
+        <h1 class="complete-title">COMPLETE</h1>
+        <p class="complete-subtitle">TARGET ACHIEVED</p>
+        
+        <div class="stats-grid">
+          <div class="stat-box">
+            <div class="val">20</div>
+            <div class="lbl">REPS</div>
+          </div>
+          <div class="divider"></div>
+          <div class="stat-box">
+            <div class="val" id="session-time">--</div>
+            <div class="lbl">SEC</div>
+          </div>
+        </div>
+        
+        <button id="unlock-btn" class="btn primary">
+          UNLOCK PC
         </button>
         
-        <p class="status-text" id="unlock-status"></p>
+        <p class="subtitle" id="unlock-status" style="margin-top: 20px;"></p>
+        
+        <a href="#" id="back-to-session-btn" class="text-btn" style="display:block; margin-bottom: 20px;">START ANOTHER SESSION</a>
+        
+        <a href="#" onclick="forceReset(); return false;" class="text-btn" style="opacity: 0.5;">System Reset (v2.11)</a>
       </div>
     </div>
+        
+    
+    <!-- デバッグコンソール -->
+    <div id="debug-console" style="position:fixed; bottom:0; left:0; width:100%; height:150px; background:rgba(0,0,0,0.8); color:#0f0; font-size:10px; overflow-y:scroll; z-index:9999; padding:5px; pointer-events:none; display:none;"></div>
   </div>
 
   <script src="app.js"></script>
+  <script>
+    // 強制リセット関数
+    async function forceReset() {
+      if(!confirm('アプリを初期化して再読み込みしますか？')) return;
+      
+      if ('serviceWorker' in navigator) {
+        const registrations = await navigator.serviceWorker.getRegistrations();
+        for (let registration of registrations) {
+          await registration.unregister();
+        }
+      }
+      
+      if ('caches' in window) {
+        const keys = await caches.keys();
+        await Promise.all(keys.map(key => caches.delete(key)));
+      }
+      
+      window.location.reload(true);
+    }
+  </script>
 </body>
 </html>

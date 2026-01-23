@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "THE TOLL - スクワットでアンロック",
-  "version": "1.0.1",
-  "description": "YouTubeをブロックし、スクワット5回でアンロックするChrome拡張機能",
+  "name": "THE TOLL - Squat to Unlock",
+  "version": "1.0.2",
+  "description": "Block YouTube until you complete 5 squats on your phone",
   "permissions": [
     "storage"
   ],
@@ -16,6 +16,12 @@
       "js": ["lib/qrcode.min.js", "content.js"],
       "css": ["overlay.css"],
       "run_at": "document_end"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["images/*"],
+      "matches": ["*://*.youtube.com/*"]
     }
   ],
   "icons": {
