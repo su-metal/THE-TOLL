@@ -11,6 +11,8 @@
   const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFjbnpsZWl5ZWtiZ3NpeW9td2luIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg0Mjk2NzMsImV4cCI6MjA4NDAwNTY3M30.NlGUfxDPzMgtu_J0vX7FMe-ikxafboGh5GMr-tsaLfI';
   
   // スマホアプリのURL（HTTPSが必要！ngrokを使用推奨）
+  const SMARTPHONE_APP_URL = 'https://nikita-unmajestic-reciprocatively.ngrok-free.dev';
+  
   let GRACE_PERIOD_MS = 20 * 60 * 1000; // デフォルト20分
   let isLocked = true;
   let observer = null;
@@ -36,6 +38,55 @@
       sessionStorage.setItem('toll_session_id', sessionId);
     }
     return sessionId;
+  }
+
+  let adultBlacklist = new Set();
+  let adultBlacklistLoaded = false;
+
+  async function loadAdultBlacklist() {
+    if (adultBlacklistLoaded) return;
+    try {
+      const url = chrome.runtime.getURL('blocked_adult_sites.json');
+      const response = await fetch(url);
+      const data = await response.json();
+      adultBlacklist = new Set(data.domains);
+      adultBlacklistLoaded = true;
+      debugLog(`Adult blacklist loaded: ${adultBlacklist.size} sites`);
+    } catch (e) {
+      console.error('[THE TOLL] Blacklist load failed:', e);
+    }
+  }
+
+  // ブロック対象サイトかチェック
+  async function isCurrentSiteBlocked() {
+    const settings = await chrome.storage.local.get(['blocked_sites', 'custom_blocked_sites', 'adult_block_enabled']);
+    const blockedSites = settings.blocked_sites || ['youtube.com'];
+    const customSites = settings.custom_blocked_sites || [];
+    const adultBlockEnabled = settings.adult_block_enabled || false;
+    
+    const currentHost = window.location.hostname.toLowerCase();
+    
+    // 1. プリセットとカスタムをチェック
+    const allSites = [...blockedSites, ...customSites];
+    const isManualBlocked = allSites.some(siteStr => {
+      const domains = siteStr.split(',');
+      return domains.some(domain => currentHost.includes(domain.trim()));
+    });
+
+    if (isManualBlocked) return true;
+
+    // 2. アダルトサイト一括ブロックが有効な場合
+    if (adultBlockEnabled) {
+      await loadAdultBlacklist();
+      // サブドメインを剥がしてチェック (e.g. www.pornhub.com -> pornhub.com)
+      const hostParts = currentHost.split('.');
+      for (let i = 0; i < hostParts.length - 1; i++) {
+        const domainToCheck = hostParts.slice(i).join('.');
+        if (adultBlacklist.has(domainToCheck)) return true;
+      }
+    }
+    
+    return false;
   }
 
   // 強制停止
@@ -116,14 +167,43 @@
   }
 
   // ============================================
-  // オーバーレイ作成
+  // オーバーレイ作成 (Shadow DOM使用)
   // ============================================
   
-  function createOverlay(sessionId) {
+  async function createOverlay(sessionId) {
+    // 既存のオーバーレイを削除
+    const existingHost = document.getElementById('toll-overlay-host');
+    if (existingHost) existingHost.remove();
+
+    // ホスト要素の作成
+    const host = document.createElement('div');
+    host.id = 'toll-overlay-host';
+    host.style.position = 'fixed';
+    host.style.top = '0';
+    host.style.left = '0';
+    host.style.width = '100vw';
+    host.style.height = '100vh';
+    host.style.zIndex = '2147483647';
+    host.style.border = 'none';
+
+    // Shadow Rootの添付
+    const shadow = host.attachShadow({ mode: 'open' });
+
+    // CSSの読み込み (linkタグを使用する方がCSP制限を回避しやすい)
+    const link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = chrome.runtime.getURL('overlay.css');
+    shadow.appendChild(link);
+
+    // 古いfetchベースのコードは削除
+
+    // オーバーレイ本体
     const overlay = document.createElement('div');
     overlay.id = 'toll-overlay';
     
-    const appUrl = `${SMARTPHONE_APP_URL}?session=${sessionId}`;
+    const settings = await chrome.storage.local.get('target_squat_count');
+    const targetCount = settings.target_squat_count || 5;
+    const appUrl = `${SMARTPHONE_APP_URL}?session=${sessionId}&target=${targetCount}`;
     
     overlay.innerHTML = `
       <div class="toll-container">
@@ -131,7 +211,7 @@
         <p class="toll-subtitle">SELF-DISCIPLINE SYSTEM</p>
         
         <div class="toll-instruction">
-          <p class="toll-instruction-text">Complete <strong>5</strong> squats on your phone to unlock</p>
+          <p class="toll-instruction-text">Complete <strong>${targetCount}</strong> squats on your phone to unlock</p>
         </div>
         
         <div class="toll-qr-section">
@@ -150,26 +230,28 @@
       </div>
     `;
     
-    // ページ読み込み前に挿入
+    shadow.appendChild(overlay);
+    
+    // ホストをページに挿入
     if (document.body) {
-      document.body.appendChild(overlay);
+      document.body.appendChild(host);
     } else {
       document.addEventListener('DOMContentLoaded', () => {
-        document.body.appendChild(overlay);
+        document.body.appendChild(host);
       });
     }
     
-    // 背景画像を設定（chrome.runtime.getURLを使用）
+    // 背景画像の設定
     try {
       const bgImageUrl = chrome.runtime.getURL('images/bg-gym.png');
       overlay.style.setProperty('--toll-bg-image', `url("${bgImageUrl}")`);
     } catch (e) {
-      console.log('[THE TOLL] 背景画像の読み込みをスキップ');
+      console.log('[THE TOLL] 背景画像の読み出しをスキップ');
     }
     
-    // QRコード生成
+    // QRコード生成 (Shadow DOM内でも動作するように微調整が必要な場合がある)
     setTimeout(() => {
-      const qrcodeElement = document.getElementById('toll-qrcode');
+      const qrcodeElement = shadow.getElementById('toll-qrcode');
       if (qrcodeElement && typeof QRCode !== 'undefined') {
         new QRCode(qrcodeElement, {
           text: appUrl,
@@ -181,7 +263,6 @@
         });
       }
       
-      // ブロック時の警告音を再生
       playSoundBlock();
     }, 100);
     
@@ -204,16 +285,16 @@
     isLocked = false;
     stopVideoMonitor();
 
-    // 解除時刻を保存（20分間の有効期限用）
+    // 解除時刻を保存
     const now = Date.now();
     await chrome.storage.local.set({ last_unlock_time: now });
-    debugLog('Unlock time saved: ' + new Date(now).toLocaleTimeString());
     
     // 再ロックタイマーをセット
     scheduleReLock(now);
 
     setTimeout(() => {
-      overlay.remove();
+      const host = document.getElementById('toll-overlay-host');
+      if (host) host.remove();
       sessionStorage.removeItem('toll_session_id');
     }, 500);
   }
@@ -282,11 +363,25 @@
     }, 1000);
   }
 
-  // ページをロック状態に戻す（リロードまたはタイマー）
-  function lockPage() {
-    if (isLocked) return;
-    debugLog('Grace period expired. Re-locking...');
-    location.reload(); // シンプルにリロードして初期化プロセス（init）を走らせる
+  // ページをロック状態にする
+  async function lockPage() {
+    const host = document.getElementById('toll-overlay-host');
+    if (isLocked && host) return;
+    
+    debugLog('Locking page now...');
+    isLocked = true;
+    
+    // ホストがなければ作成
+    if (!host) {
+      const sessionId = getOrCreateSessionId();
+      debugLog('Creating overlay for session: ' + sessionId);
+      const newOverlay = await createOverlay(sessionId);
+      
+      // 監視と制限を開始
+      forcePause();
+      startVideoMonitor();
+      startPolling(sessionId, newOverlay);
+    }
   }
 
   // ============================================
@@ -375,8 +470,43 @@
     }, 2000);
   }
 
+  // ============================================
+  // 設定のリアルタイム監視
+  // ============================================
+  
+  chrome.storage.onChanged.addListener((changes, namespace) => {
+    if (namespace === 'local') {
+      debugLog('Settings changed: ' + Object.keys(changes).join(', '));
+      // 設定が変更されたら、現在の状態を再評価
+      checkAndApplyState();
+    }
+  });
+
   function debugLog(msg) {
     console.log('[THE TOLL] ' + msg);
+  }
+
+  // 詳細な診断ログ
+  async function diagnosticLog() {
+    const data = await chrome.storage.local.get(['last_unlock_time', 'lock_duration_min', 'lock_schedule']);
+    const now = Date.now();
+    const lastUnlock = data.last_unlock_time || 0;
+    const durationMin = data.lock_duration_min || 20;
+    const durationMs = durationMin * 60 * 1000;
+    const timeSinceUnlock = now - lastUnlock;
+    const timeRemaining = durationMs - timeSinceUnlock;
+    
+    console.group('[THE TOLL DIAGNOSTICS]');
+    console.log('Current Time:', new Date(now).toLocaleTimeString());
+    console.log('Last Unlock:', lastUnlock ? new Date(lastUnlock).toLocaleTimeString() : 'NEVER');
+    console.log('Configured Duration:', durationMin + ' min');
+    console.log('Time Since Unlock:', Math.floor(timeSinceUnlock / 1000) + 's');
+    console.log('Time Remaining:', Math.floor(timeRemaining / 1000) + 's');
+    console.log('Is Locked (State):', isLocked);
+    console.log('Schedule:', data.lock_schedule || 'NOT SET');
+    console.groupEnd();
+    
+    return { timeRemaining, durationMs };
   }
 
   // ============================================
@@ -387,68 +517,84 @@
   async function isWithinSchedule() {
     const data = await chrome.storage.local.get('lock_schedule');
     const schedule = data.lock_schedule;
-    if (!schedule) return true; // 設定がない場合は常に有効
+    if (!schedule) return true;
 
     const now = new Date();
-    const day = now.getDay(); // 0(Sun) - 6(Sat)
+    const day = now.getDay();
     
-    // 1. 曜日のチェック
     if (!schedule.days.includes(day)) return false;
 
-    // 2. 時間のチェック
     const currentTimeStr = now.getHours().toString().padStart(2, '0') + ":" + now.getMinutes().toString().padStart(2, '0');
     
-    // 跨ぎ対応（例：22:00 〜 02:00）
     if (schedule.start <= schedule.end) {
       return currentTimeStr >= schedule.start && currentTimeStr <= schedule.end;
     } else {
-      // 終了時間が開始時間より前の場合は日を跨いでいると判定
       return currentTimeStr >= schedule.start || currentTimeStr <= schedule.end;
     }
   }
 
-  async function init() {
-    // 0. スケジュールチェック
-    if (!(await isWithinSchedule())) {
-      debugLog('Outside of lock schedule. Extension idle.');
-      isLocked = false;
+  // 状態をチェックして適切なアクション（ロック/解除/タイマー開始）を実行
+  async function checkAndApplyState() {
+    debugLog('--- checkAndApplyState 開始 ---');
+    
+    // 0. ブロック対象サイトでなければ何もしない
+    const isBlocked = await isCurrentSiteBlocked();
+    if (!isBlocked) {
+      debugLog('このドメインはブロック対象外です。処理をスキップ。');
       return;
     }
 
-    // 1. 設定からロック時間を取得して反映
-    const settings = await chrome.storage.local.get('lock_duration_min');
-    const durationMin = settings.lock_duration_min || 20;
-    GRACE_PERIOD_MS = durationMin * 60 * 1000;
+    const diag = await diagnosticLog();
+    const timeRemaining = diag.timeRemaining;
+    const withinSchedule = await isWithinSchedule();
 
-    // 1. 解除猶予期間のチェック
-    try {
-      const data = await chrome.storage.local.get('last_unlock_time');
-      const lastUnlock = data.last_unlock_time || 0;
-      const now = Date.now();
-      
-      if (now - lastUnlock < GRACE_PERIOD_MS) {
-        debugLog('Grace period active. Page unlocked.');
-        isLocked = false;
-        
-        // 残り時間のカウントダウンと再ロックをセットアップ
-        scheduleReLock(lastUnlock);
-        return; 
-      }
-    } catch (e) {
-      debugLog('Grace period check error: ' + e.message);
+    const host = document.getElementById('toll-overlay-host');
+    debugLog(`状態: isLocked=${isLocked}, host=${!!host}, withinSchedule=${withinSchedule}, timeRemaining=${timeRemaining}ms`);
+
+    // 1. スケジュール外ならアンロック
+    if (!withinSchedule) {
+      debugLog('スケジュール外: アンロックします。');
+      unlockNow(); 
+      if (reLockTimer) { clearTimeout(reLockTimer); reLockTimer = null; }
+      if (countdownHUD) { countdownHUD.remove(); countdownHUD = null; }
+      return;
     }
 
-    const sessionId = getOrCreateSessionId();
-    console.log('[THE TOLL] セッションID:', sessionId);
-    
-    const overlay = createOverlay(sessionId);
-    
-    // ビデオ停止と監視開始
-    forcePause();
-    startVideoMonitor();
-    
-    // ポーリングでSupabaseを監視
-    startPolling(sessionId, overlay);
+    // 2. 猶予期間内ならアンロック
+    if (timeRemaining > 0) {
+      debugLog(`猶予期間内 (${Math.round(timeRemaining/1000)}秒): アンロックを維持。`);
+      unlockNow();
+      // 再ロックタイマーを更新
+      scheduleReLock(Date.now() - (diag.durationMs - timeRemaining));
+    } else {
+      // 3. ロックが必要な状態
+      debugLog('ロックが必要な状態: 猶予切れまたは未解除。');
+      lockPage();
+    }
+  }
+
+  // 内部状態とUIを即座に「解除」にする
+  function unlockNow() {
+    isLocked = false;
+    stopVideoMonitor();
+    const host = document.getElementById('toll-overlay-host');
+    if (host) {
+      host.remove();
+      debugLog('オーバーレイを削除しました。');
+    }
+  }
+
+  async function init() {
+    debugLog('THE TOLL 初期化開始...');
+
+    const isBlocked = await isCurrentSiteBlocked();
+    if (!isBlocked) {
+      debugLog('このドメインはリストにありません。終了します。');
+      return; 
+    }
+
+    debugLog('このドメインはブロック対象です。状態をチェックします...');
+    await checkAndApplyState();
   }
 
   // 即座に実行

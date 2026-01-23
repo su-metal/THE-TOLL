@@ -231,25 +231,26 @@
 }
 
 .toll-countdown-hud .hud-label {
-  font-size: 0.7rem;
+  font-size: 0.9rem;
   color: #CCFF00;
   letter-spacing: 2px;
-  margin-bottom: 5px;
+  margin-bottom: 8px;
   text-transform: uppercase;
   font-weight: bold;
 }
 
 .toll-countdown-hud .hud-timer {
-  font-size: 1.5rem;
+  font-size: 3rem;
   font-weight: 800;
   display: flex;
   align-items: baseline;
-  gap: 5px;
+  gap: 10px;
+  line-height: 1;
 }
 
 .toll-countdown-hud .hud-timer span {
-  font-size: 0.8rem;
-  color: #666;
+  font-size: 1.2rem;
+  color: #888;
 }
 
 @keyframes hud-in {

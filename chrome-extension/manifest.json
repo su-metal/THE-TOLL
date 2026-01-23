@@ -7,12 +7,11 @@
     "storage"
   ],
   "host_permissions": [
-    "*://*.youtube.com/*",
-    "https://*.supabase.co/*"
+    "<all_urls>"
   ],
   "content_scripts": [
     {
-      "matches": ["*://*.youtube.com/*"],
+      "matches": ["<all_urls>"],
       "js": ["lib/qrcode.min.js", "content.js"],
       "css": ["overlay.css"],
       "run_at": "document_end"
@@ -20,8 +19,8 @@
   ],
   "web_accessible_resources": [
     {
-      "resources": ["images/*"],
-      "matches": ["*://*.youtube.com/*"]
+      "resources": ["images/*", "overlay.css", "blocked_adult_sites.json"],
+      "matches": ["<all_urls>"]
     }
   ],
   "icons": {
