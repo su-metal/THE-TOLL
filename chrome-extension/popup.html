@@ -56,7 +56,13 @@
       </div>
       
       <div class="settings-group">
-        <label class="group-label">BLOCKED SITES</label>
+        <div class="group-header-row">
+          <label class="group-label">BLOCKED SITES</label>
+          <label class="site-toggle-label">
+            <input type="checkbox" id="adult-block-toggle">
+            <span class="site-toggle-text">ADULT BLOCK</span>
+          </label>
+        </div>
         <div class="blocked-sites-grid">
           <label class="site-check"><input type="checkbox" name="blocked-site" value="youtube.com" checked><span>YouTube</span></label>
           <label class="site-check"><input type="checkbox" name="blocked-site" value="twitter.com,x.com"><span>X (Twitter)</span></label>
@@ -64,6 +70,16 @@
           <label class="site-check"><input type="checkbox" name="blocked-site" value="tiktok.com"><span>TikTok</span></label>
           <label class="site-check"><input type="checkbox" name="blocked-site" value="facebook.com"><span>Facebook</span></label>
           <label class="site-check"><input type="checkbox" name="blocked-site" value="netflix.com"><span>Netflix</span></label>
+        </div>
+        
+        <div class="custom-sites-section">
+          <div class="input-row">
+            <input type="text" id="custom-domain-input" placeholder="e.g. news.google.com">
+            <button id="add-custom-domain-btn" class="add-btn">ADD</button>
+          </div>
+          <div id="custom-sites-list" class="sites-list">
+            <!-- Custom domains will be added here -->
+          </div>
         </div>
       </div>
 

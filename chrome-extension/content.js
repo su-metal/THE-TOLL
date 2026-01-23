@@ -40,16 +40,53 @@
     return sessionId;
   }
 
+  let adultBlacklist = new Set();
+  let adultBlacklistLoaded = false;
+
+  async function loadAdultBlacklist() {
+    if (adultBlacklistLoaded) return;
+    try {
+      const url = chrome.runtime.getURL('blocked_adult_sites.json');
+      const response = await fetch(url);
+      const data = await response.json();
+      adultBlacklist = new Set(data.domains);
+      adultBlacklistLoaded = true;
+      debugLog(`Adult blacklist loaded: ${adultBlacklist.size} sites`);
+    } catch (e) {
+      console.error('[THE TOLL] Blacklist load failed:', e);
+    }
+  }
+
   // ブロック対象サイトかチェック
   async function isCurrentSiteBlocked() {
-    const settings = await chrome.storage.local.get('blocked_sites');
+    const settings = await chrome.storage.local.get(['blocked_sites', 'custom_blocked_sites', 'adult_block_enabled']);
     const blockedSites = settings.blocked_sites || ['youtube.com'];
-    const currentHost = window.location.hostname;
+    const customSites = settings.custom_blocked_sites || [];
+    const adultBlockEnabled = settings.adult_block_enabled || false;
     
-    return blockedSites.some(siteStr => {
+    const currentHost = window.location.hostname.toLowerCase();
+    
+    // 1. プリセットとカスタムをチェック
+    const allSites = [...blockedSites, ...customSites];
+    const isManualBlocked = allSites.some(siteStr => {
       const domains = siteStr.split(',');
       return domains.some(domain => currentHost.includes(domain.trim()));
     });
+
+    if (isManualBlocked) return true;
+
+    // 2. アダルトサイト一括ブロックが有効な場合
+    if (adultBlockEnabled) {
+      await loadAdultBlacklist();
+      // サブドメインを剥がしてチェック (e.g. www.pornhub.com -> pornhub.com)
+      const hostParts = currentHost.split('.');
+      for (let i = 0; i < hostParts.length - 1; i++) {
+        const domainToCheck = hostParts.slice(i).join('.');
+        if (adultBlacklist.has(domainToCheck)) return true;
+      }
+    }
+    
+    return false;
   }
 
   // 強制停止

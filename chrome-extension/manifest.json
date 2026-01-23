@@ -19,7 +19,7 @@
   ],
   "web_accessible_resources": [
     {
-      "resources": ["images/*", "overlay.css"],
+      "resources": ["images/*", "overlay.css", "blocked_adult_sites.json"],
       "matches": ["<all_urls>"]
     }
   ],

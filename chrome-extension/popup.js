@@ -12,6 +12,16 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // --- Initialize Settings Logic ---
   
+  // 0. Adult Block Toggle
+  const adultBlockToggle = document.getElementById('adult-block-toggle');
+  const adultBlockData = await chrome.storage.local.get('adult_block_enabled');
+  adultBlockToggle.checked = adultBlockData.adult_block_enabled || false;
+
+  adultBlockToggle.addEventListener('change', async (e) => {
+    await chrome.storage.local.set({ adult_block_enabled: e.target.checked });
+    showSavedStatus();
+  });
+  
   // 1. Durations
   const radioButtons = document.querySelectorAll('input[name="duration"]');
   const durationData = await chrome.storage.local.get('lock_duration_min');
@@ -75,18 +85,63 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // 4. Blocked Sites
   const siteChecks = document.querySelectorAll('input[name="blocked-site"]');
-  const sitesData = await chrome.storage.local.get('blocked_sites');
-  // デフォルト: YouTubeのみ有効
+  const customInput = document.getElementById('custom-domain-input');
+  const addCustomBtn = document.getElementById('add-custom-domain-btn');
+  const customSitesList = document.getElementById('custom-sites-list');
+
+  const sitesData = await chrome.storage.local.get(['blocked_sites', 'custom_blocked_sites']);
   const savedSites = sitesData.blocked_sites || ['youtube.com'];
+  let customSites = sitesData.custom_blocked_sites || [];
   
+  // プリセットの初期化
   siteChecks.forEach(check => {
     check.checked = savedSites.includes(check.value);
-    check.addEventListener('change', async () => {
-      const activeSites = Array.from(siteChecks).filter(c => c.checked).map(c => c.value);
-      await chrome.storage.local.set({ blocked_sites: activeSites });
-      showSavedStatus();
-    });
+    check.addEventListener('change', saveBlockedSites);
   });
+
+  // カスタムドメインの初期化
+  function renderCustomSites() {
+    customSitesList.innerHTML = '';
+    customSites.forEach((domain, index) => {
+      const item = document.createElement('div');
+      item.className = 'site-item';
+      item.innerHTML = `
+        <span class="domain">${domain}</span>
+        <span class="remove-btn" data-index="${index}">×</span>
+      `;
+      customSitesList.appendChild(item);
+    });
+
+    // 削除ボタンのイベント
+    customSitesList.querySelectorAll('.remove-btn').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        const idx = parseInt(e.target.dataset.index);
+        customSites.splice(idx, 1);
+        await chrome.storage.local.set({ custom_blocked_sites: customSites });
+        renderCustomSites();
+        showSavedStatus();
+      });
+    });
+  }
+
+  addCustomBtn.addEventListener('click', async () => {
+    const domain = customInput.value.trim().toLowerCase();
+    if (domain && !customSites.includes(domain)) {
+      customSites.push(domain);
+      await chrome.storage.local.set({ custom_blocked_sites: customSites });
+      customInput.value = '';
+      renderCustomSites();
+      showSavedStatus();
+    }
+  });
+
+  renderCustomSites();
+
+  async function saveBlockedSites() {
+    const activeSites = Array.from(siteChecks).filter(c => c.checked).map(c => c.value);
+    await chrome.storage.local.set({ blocked_sites: activeSites });
+    showSavedStatus();
+  }
 
   // --- Settings Guard Logic ---
 
