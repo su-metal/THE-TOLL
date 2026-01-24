@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;700&family=Roboto+Mono:wght@400;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="style.css?v=2.18">
   <!-- MediaPipe Pose -->
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
@@ -69,6 +69,8 @@
           <button id="to-session-btn" class="btn secondary">ENTER SESSION</button>
           <button id="logout-btn" class="text-btn">LOGOUT</button>
         </div>
+        
+        <a href="#" onclick="forceReset(); return false;" class="text-btn" style="display:block; margin-top: 30px; opacity: 0.5;">System Hard Reset (v2.18)</a>
       </div>
     </div>
 
@@ -190,7 +192,7 @@
     <div id="debug-console"></div>
   </div>
 
-  <script src="app.js"></script>
+  <script src="app.js?v=2.18"></script>
   <script>
     // 強制リセット関数
     async function forceReset() {

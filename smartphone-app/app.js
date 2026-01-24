@@ -7,7 +7,7 @@
   // ============================================
   // 設定
   // ============================================
-  const APP_VERSION = 'v2.16 (Final Fix)';
+  const APP_VERSION = 'v2.17 (Rescue Update)';
   const SUPABASE_URL = 'https://qcnzleiyekbgsiyomwin.supabase.co';
   const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFjbnpsZWl5ZWtiZ3NpeW9td2luIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg0Mjk2NzMsImV4cCI6MjA4NDAwNTY3M30.NlGUfxDPzMgtu_J0vX7FMe-ikxafboGh5GMr-tsaLfI';
 
@@ -97,14 +97,9 @@
   // ユーティリティ
   // ============================================
   function debugLog(msg) {
-    console.log(msg);
-    const debugEl = document.getElementById('debug-console');
-    if (debugEl) {
-      const line = document.createElement('div');
-      line.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
-      debugEl.prepend(line);
-    }
+    // console.log(msg); // 完全に停止
   }
+
 
   function updateStatus(text) { elements.statusLabel.textContent = text; }
 
@@ -370,6 +365,11 @@
     
     const isVisible = requiredLandmarks.every(idx => lm[idx] && lm[idx].visibility > 0.5);
     
+    // ガイドオーバーレイのテキストを更新
+    if (elements.guide) {
+        elements.guide.textContent = visibilityMsg;
+    }
+    
     if (!isVisible) {
       updateStatus(visibilityMsg);
       elements.guide.classList.remove('hidden');
@@ -386,6 +386,24 @@
     } else if (state.exerciseType === 'SITUP') {
       handleSitupDetection(lm);
     }
+  }
+
+  // エクササイズ画面にEXITボタンを追加
+  function addExitButton() {
+     const container = document.getElementById('camera-overlay-ui'); // カメラUIオーバーレイが存在すると仮定
+     if (!container) return;
+
+     // 既にあれば削除
+     const existingBtn = document.getElementById('exercise-exit-btn');
+     if (existingBtn) existingBtn.remove();
+     
+     const exitBtn = document.createElement('button');
+     exitBtn.id = 'exercise-exit-btn';
+     exitBtn.className = 'absolute top-4 right-4 bg-red-600 text-white px-4 py-2 rounded font-bold z-50';
+     exitBtn.textContent = 'EXIT';
+     exitBtn.onclick = cancelSession;
+     
+     container.appendChild(exitBtn);
   }
  
   function handleSquatDetection(lm) {
@@ -719,6 +737,9 @@
     if (document.fullscreenElement) {
        document.exitFullscreen().catch(()=>{});
     }
+
+    const exitBtn = document.getElementById('exercise-exit-btn');
+    if (exitBtn) exitBtn.remove();
 
     showScreen('session-screen');
     updateStatus('READY');

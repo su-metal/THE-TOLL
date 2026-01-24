@@ -34,15 +34,22 @@ console.log('[THE TOLL] Content script loaded: ' + window.location.href);
 
   // セッションIDの取得または生成 (非同期)
   async function getOrCreateSessionId() {
-    const data = await chrome.storage.local.get('toll_global_session_id');
-    let sessionId = data.toll_global_session_id;
+    if (!isExtensionContextValid()) return 'EXTENSION_INVALID';
     
-    if (!sessionId) {
-      sessionId = generateSessionId();
-      await chrome.storage.local.set({ 'toll_global_session_id': sessionId });
-      debugLog('New Global Session ID generated: ' + sessionId);
+    try {
+      const data = await chrome.storage.local.get('toll_global_session_id');
+      let sessionId = data.toll_global_session_id;
+      
+      if (!sessionId) {
+        sessionId = generateSessionId();
+        await chrome.storage.local.set({ 'toll_global_session_id': sessionId });
+        debugLog('New Global Session ID generated: ' + sessionId);
+      }
+      return sessionId;
+    } catch (e) {
+      console.error('[THE TOLL] Error accessing storage for Session ID:', e);
+      return generateSessionId(); // フォールバック
     }
-    return sessionId;
   }
 
   let adultBlacklist = new Set();
@@ -62,36 +69,51 @@ console.log('[THE TOLL] Content script loaded: ' + window.location.href);
     }
   }
 
+  // 拡張機能のコンテキストが有効かチェック
+  function isExtensionContextValid() {
+    return typeof chrome !== 'undefined' && chrome.runtime && !!chrome.runtime.id;
+  }
+
   // ブロック対象サイトかチェック
   async function isCurrentSiteBlocked() {
-    const settings = await chrome.storage.local.get(['blocked_sites', 'custom_blocked_sites', 'adult_block_enabled']);
-    const blockedSites = settings.blocked_sites || ['youtube.com'];
-    const customSites = settings.custom_blocked_sites || [];
-    const adultBlockEnabled = settings.adult_block_enabled || false;
-    
-    const currentHost = window.location.hostname.toLowerCase();
-    
-    // 1. プリセットとカスタムをチェック
-    const allSites = [...blockedSites, ...customSites];
-    const isManualBlocked = allSites.some(siteStr => {
-      const domains = siteStr.split(',');
-      return domains.some(domain => currentHost.includes(domain.trim()));
-    });
-
-    if (isManualBlocked) return true;
-
-    // 2. アダルトサイト一括ブロックが有効な場合
-    if (adultBlockEnabled) {
-      await loadAdultBlacklist();
-      // サブドメインを剥がしてチェック (e.g. www.pornhub.com -> pornhub.com)
-      const hostParts = currentHost.split('.');
-      for (let i = 0; i < hostParts.length - 1; i++) {
-        const domainToCheck = hostParts.slice(i).join('.');
-        if (adultBlacklist.has(domainToCheck)) return true;
+    try {
+      if (!isExtensionContextValid()) {
+        console.warn('[THE TOLL] Extension context invalidated. Please reload the page.');
+        return false;
       }
+      
+      const settings = await chrome.storage.local.get(['blocked_sites', 'custom_blocked_sites', 'adult_block_enabled']);
+      const blockedSites = settings.blocked_sites || ['youtube.com'];
+      const customSites = settings.custom_blocked_sites || [];
+      const adultBlockEnabled = settings.adult_block_enabled || false;
+      
+      const currentHost = window.location.hostname.toLowerCase();
+      
+      // 1. プリセットとカスタムをチェック
+      const allSites = [...blockedSites, ...customSites];
+      const isManualBlocked = allSites.some(siteStr => {
+        const domains = siteStr.split(',');
+        return domains.some(domain => currentHost.includes(domain.trim()));
+      });
+  
+      if (isManualBlocked) return true;
+  
+      // 2. アダルトサイト一括ブロックが有効な場合
+      if (adultBlockEnabled) {
+        await loadAdultBlacklist();
+        // サブドメインを剥がしてチェック (e.g. www.pornhub.com -> pornhub.com)
+        const hostParts = currentHost.split('.');
+        for (let i = 0; i < hostParts.length - 1; i++) {
+          const domainToCheck = hostParts.slice(i).join('.');
+          if (adultBlacklist.has(domainToCheck)) return true;
+        }
+      }
+      
+      return false;
+    } catch (e) {
+      console.error('[THE TOLL] Error checking blocked status:', e);
+      return false;
     }
-    
-    return false;
   }
 
   // 強制停止
@@ -141,22 +163,35 @@ console.log('[THE TOLL] Content script loaded: ' + window.location.href);
     }
   }
 
-  function playTone(frequency, duration, type = 'sine', volume = 0.3) {
+  async function playTone(frequency, duration, type = 'sine', volume = 0.3) {
     if (!audioContext) return;
     
-    const oscillator = audioContext.createOscillator();
-    const gainNode = audioContext.createGain();
-    
-    oscillator.connect(gainNode);
-    gainNode.connect(audioContext.destination);
-    
-    oscillator.type = type;
-    oscillator.frequency.value = frequency;
-    gainNode.gain.value = volume;
-    gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + duration);
-    
-    oscillator.start(audioContext.currentTime);
-    oscillator.stop(audioContext.currentTime + duration);
+    // コンテキストが停止していたら再開を試みる
+    if (audioContext.state === 'suspended') {
+      try {
+        await audioContext.resume();
+      } catch (e) {
+        console.warn('[THE TOLL] Audio resume failed:', e);
+      }
+    }
+
+    try {
+      const oscillator = audioContext.createOscillator();
+      const gainNode = audioContext.createGain();
+      
+      oscillator.connect(gainNode);
+      gainNode.connect(audioContext.destination);
+      
+      oscillator.type = type;
+      oscillator.frequency.value = frequency;
+      gainNode.gain.value = volume;
+      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + duration);
+      
+      oscillator.start(audioContext.currentTime);
+      oscillator.stop(audioContext.currentTime + duration);
+    } catch (e) {
+      console.warn('[THE TOLL] Error playing tone:', e);
+    }
   }
 
   // ブロック時の警告音（重厚な警告音）
@@ -294,8 +329,13 @@ console.log('[THE TOLL] Content script loaded: ' + window.location.href);
     const now = Date.now();
     await chrome.storage.local.set({ last_global_unlock_time: now });
     
+    // 設定から時間を取得して有効期限を計算
+    const settings = await chrome.storage.local.get('lock_duration_min');
+    const durationMin = settings.lock_duration_min || 20;
+    const expirationTime = now + (durationMin * 60 * 1000);
+
     // 再ロックタイマーをセット
-    scheduleReLock(now);
+    scheduleReLock(expirationTime);
 
     setTimeout(() => {
       const host = document.getElementById('toll-overlay-host');
@@ -304,17 +344,11 @@ console.log('[THE TOLL] Content script loaded: ' + window.location.href);
   }
 
   // 再ロックのスケジュール設定
-  async function scheduleReLock(unlockTime) {
+  async function scheduleReLock(expirationTime) {
     if (reLockTimer) clearTimeout(reLockTimer);
     
-    // 設定からロック時間を取得（デフォルト20分）
-    const settings = await chrome.storage.local.get('lock_duration_min');
-    const durationMin = settings.lock_duration_min || 20;
-    GRACE_PERIOD_MS = durationMin * 60 * 1000;
-
     const now = Date.now();
-    const timeSinceUnlock = now - unlockTime;
-    const timeRemaining = GRACE_PERIOD_MS - timeSinceUnlock;
+    const timeRemaining = expirationTime - now;
 
     if (timeRemaining <= 0) {
       lockPage();
@@ -323,9 +357,15 @@ console.log('[THE TOLL] Content script loaded: ' + window.location.href);
 
     // 1. カウントダウンHUDの開始（再ロックの60秒前）
     const countdownStartIn = Math.max(0, timeRemaining - 60 * 1000);
-    setTimeout(() => {
-      startCountdownTimer(unlockTime + GRACE_PERIOD_MS);
-    }, countdownStartIn);
+    
+    // すでに残り1分を切っている場合は即座に表示
+    if (countdownStartIn === 0) {
+      startCountdownTimer(expirationTime);
+    } else {
+      setTimeout(() => {
+        startCountdownTimer(expirationTime);
+      }, countdownStartIn);
+    }
 
     // 2. 実際の再ロック
     reLockTimer = setTimeout(() => {
@@ -333,10 +373,21 @@ console.log('[THE TOLL] Content script loaded: ' + window.location.href);
     }, timeRemaining);
   }
 
+  let countdownInterval = null;
+  let currentExpireTime = 0; // 現在表示中のタイマーの期限
+
   // カウントダウンHUDの管理
   function startCountdownTimer(expireTime) {
+    // 既に同じ期限のタイマーが動いていて、HUDも存在する場合は作り直さない（チラつき・巻き戻り防止）
+    if (countdownHUD && countdownInterval && currentExpireTime === expireTime) {
+      return; 
+    }
+
     if (countdownHUD) countdownHUD.remove();
+    if (countdownInterval) clearInterval(countdownInterval);
     
+    currentExpireTime = expireTime; // 期限を記憶
+
     countdownHUD = document.createElement('div');
     countdownHUD.className = 'toll-countdown-hud';
     countdownHUD.innerHTML = `
@@ -345,17 +396,25 @@ console.log('[THE TOLL] Content script loaded: ' + window.location.href);
     `;
     document.body.appendChild(countdownHUD);
 
-    const updateInterval = setInterval(() => {
+    // 初回即時更新
+    updateTimerDisplay(expireTime);
+
+    countdownInterval = setInterval(() => {
+      updateTimerDisplay(expireTime);
+    }, 1000);
+  }
+
+  function updateTimerDisplay(expireTime) {
       const now = Date.now();
       const remaining = Math.floor((expireTime - now) / 1000);
 
       if (remaining <= 0) {
-        clearInterval(updateInterval);
-        countdownHUD.remove();
+        if (countdownInterval) clearInterval(countdownInterval);
+        if (countdownHUD) countdownHUD.remove();
         return;
       }
 
-      if (remaining <= 10) countdownHUD.classList.add('warning');
+      if (countdownHUD && remaining <= 10) countdownHUD.classList.add('warning');
 
       const m = Math.floor(remaining / 60).toString().padStart(2, '0');
       const s = (remaining % 60).toString().padStart(2, '0');
@@ -364,7 +423,6 @@ console.log('[THE TOLL] Content script loaded: ' + window.location.href);
       const secEl = document.getElementById('hud-sec');
       if (minEl) minEl.textContent = m;
       if (secEl) secEl.textContent = s;
-    }, 1000);
   }
 
   // ページをロック状態にする
@@ -486,14 +544,42 @@ console.log('[THE TOLL] Content script loaded: ' + window.location.href);
     }
   });
 
+  // タブがアクティブになった時に状態を再同期
+  // これにより、バックグラウンドでタイマーがズレたりHUDが表示されなかった問題を修正
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+      debugLog('Tab became visible: resyncing state...');
+      checkAndApplyState();
+    }
+  });
+
   function debugLog(msg) {
-    console.log('[THE TOLL] ' + msg);
+    // console.log('[THE TOLL] ' + msg); // 本番運用のためログ停止
   }
 
   // 状態をチェックして適切なアクション（ロック/解除/タイマー開始）を実行
   async function checkAndApplyState() {
     debugLog('--- checkAndApplyState 開始 ---');
     
+    if (!isExtensionContextValid()) {
+      console.warn('[THE TOLL] Extension context invalidated. Injecting reload warning.');
+      // 拡張機能が更新された場合、既存のインタラクションは壊れるため、リロードを促すオーバーレイを表示
+      const existingHost = document.getElementById('toll-overlay-host');
+      if (existingHost) {
+        // 既存のオーバーレイがあれば、メッセージを強制更新する（Shadow DOM内）
+        const shadow = existingHost.shadowRoot;
+        if (shadow) {
+          const status = shadow.querySelector('.toll-status');
+          if (status) {
+             status.textContent = 'EXTENSION UPDATED. PLEASE RELOAD PAGE.';
+             status.style.color = 'red';
+             status.style.fontWeight = 'bold';
+          }
+        }
+      }
+      return;
+    }
+
     // 0. ブロック対象サイトでなければ何もしない
     const isBlocked = await isCurrentSiteBlocked();
     if (!isBlocked) {
@@ -501,40 +587,46 @@ console.log('[THE TOLL] Content script loaded: ' + window.location.href);
       return;
     }
 
-    const data = await chrome.storage.local.get(['last_global_unlock_time', 'lock_duration_min', 'lock_schedule']);
-    
-    const now = Date.now();
-    const lastUnlock = data.last_global_unlock_time || 0;
-    const durationMin = data.lock_duration_min || 20;
-    const durationMs = durationMin * 60 * 1000;
-    const timeSinceUnlock = now - lastUnlock;
-    const timeRemaining = durationMs - timeSinceUnlock;
-    
-    const withinSchedule = await isWithinSchedule();
+    try {
+      const data = await chrome.storage.local.get(['last_global_unlock_time', 'lock_duration_min', 'lock_schedule']);
+      
+      const now = Date.now();
+      const lastUnlock = data.last_global_unlock_time || 0;
+      const durationMin = data.lock_duration_min || 20;
+      const durationMs = durationMin * 60 * 1000;
+      const timeSinceUnlock = now - lastUnlock;
+      const timeRemaining = durationMs - timeSinceUnlock;
+      
+      const withinSchedule = await isWithinSchedule();
 
-    const host = document.getElementById('toll-overlay-host');
-    debugLog(`状態: isLocked=${isLocked}, host=${!!host}, withinSchedule=${withinSchedule}, timeRemaining=${timeRemaining}ms`);
+      const host = document.getElementById('toll-overlay-host');
+      debugLog(`状態: isLocked=${isLocked}, host=${!!host}, withinSchedule=${withinSchedule}, timeRemaining=${timeRemaining}ms`);
 
-    // 1. スケジュール外ならアンロック
-    if (!withinSchedule) {
-      console.warn('[THE TOLL] OUTSIDE SCHEDULE HOURS - UNLOCKING');
-      debugLog('スケジュール外: アンロックします。');
-      unlockNow(); 
-      if (reLockTimer) { clearTimeout(reLockTimer); reLockTimer = null; }
-      if (countdownHUD) { countdownHUD.remove(); countdownHUD = null; }
-      return;
-    }
+      // 1. スケジュール外ならアンロック
+      if (!withinSchedule) {
+        console.warn('[THE TOLL] OUTSIDE SCHEDULE HOURS - UNLOCKING');
+        debugLog('スケジュール外: アンロックします。');
+        unlockNow(); 
+        if (reLockTimer) { clearTimeout(reLockTimer); reLockTimer = null; }
+        if (countdownHUD) { countdownHUD.remove(); countdownHUD = null; }
+        if (countdownInterval) { clearInterval(countdownInterval); countdownInterval = null; }
+        return;
+      }
 
-    // 2. 猶予期間内ならアンロック
-    if (lastUnlock > 0 && timeRemaining > 0) {
-      debugLog(`グローバル猶予期間内 (${Math.round(timeRemaining/1000)}秒): アンロックを維持。`);
-      unlockNow();
-      // 再ロックタイマーをセット
-      scheduleReLock(lastUnlock);
-    } else {
-      // 3. ロックが必要な状態
-      debugLog('ロックが必要な状態: 猶予切れまたは未解除。');
-      lockPage();
+      // 2. 猶予期間内ならアンロック
+      if (lastUnlock > 0 && timeRemaining > 0) {
+        debugLog(`グローバル猶予期間内 (${Math.round(timeRemaining/1000)}秒): アンロックを維持。`);
+        unlockNow();
+        // 再ロックタイマーをセット (絶対時刻である expirationTime を渡す)
+        const expirationTime = lastUnlock + durationMs;
+        scheduleReLock(expirationTime);
+      } else {
+        // 3. ロックが必要な状態
+        debugLog('ロックが必要な状態: 猶予切れまたは未解除。');
+        lockPage();
+      }
+    } catch (e) {
+      console.error('[THE TOLL] Error in checkAndApplyState:', e);
     }
   }
 
