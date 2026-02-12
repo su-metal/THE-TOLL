@@ -1,6 +1,6 @@
 # THE TOLL 要件定義（実装準拠）
 
-最終更新: 2026-02-12  
+最終更新: 2026-02-12 (更新版)  
 対象実装: `smartphone-app/`, `chrome-extension/`, `supabase/functions/`
 
 ## 1. 目的
@@ -57,8 +57,9 @@ Web閲覧を一時的にロックし、スマホで指定回数の運動を完�
 - スケジュール外は強制アンロック状態とする。
 
 ### FR-07 スマホ認証
-- メール/パスワードでログイン・新規登録できる（Supabase Auth）。
+- Google OAuthでログインできる（Supabase Auth）。
 - 認証状態変化を監視し、ログイン中のみセッション画面へ進める。
+- メール/パスワード認証は導線から廃止する（運用コスト削減方針）。
 
 ### FR-08 サブスク状態判定
 - `profiles.subscription_status` を参照し、`active` のみ利用可能とする。
@@ -103,6 +104,11 @@ Web閲覧を一時的にロックし、スマホで指定回数の運動を完�
 - 設定ロック解除ミッション（30回）用セッションを発行できる。
 - 解除成功時のみ設定編集可能状態に遷移できる。
 
+### FR-17 サブスク管理導線
+- 課金済みユーザー向けに `Manage Subscription` 導線を提供する。
+- Stripe Customer Portalに遷移し、解約/支払い方法変更を可能にする。
+- 戻り先で状態を再同期し、`profiles.subscription_status` をUIに反映する。
+
 ## 5. データ要件
 
 ### 5.1 Supabaseテーブル
@@ -130,8 +136,7 @@ Web閲覧を一時的にロックし、スマホで指定回数の運動を完�
 
 ## 6. 外部インターフェース要件
 - Supabase Auth
-  - `signInWithPassword`
-  - `signUp`
+  - `signInWithOAuth` (Google)
   - `signOut`
 - Supabase REST
   - `POST /rest/v1/squat_sessions`
@@ -141,6 +146,7 @@ Web閲覧を一時的にロックし、スマホで指定回数の運動を完�
 - Supabase Edge Functions
   - `create-checkout`
   - `stripe-webhook`
+  - `create-customer-portal` (予定)
 
 ## 7. 非機能要件
 - 対応環境:
@@ -195,6 +201,9 @@ Web閲覧を一時的にロックし、スマホで指定回数の運動を完�
 - FR-13 完了・解除信号送信
 - FR-14 セッション中断/再開
 - FR-15 PWA/キャッシュ
+ 
+補足:
+- FR-07 は Google OAuth版で満たす（Email/Passwordは対象外）。
 
 MVPの完了条件:
 - AC-01〜AC-04, AC-06, AC-07 を満たすこと。
@@ -202,11 +211,116 @@ MVPの完了条件:
 ### 11.2 v1.1以降（拡張）
 - FR-06 スケジュール制御
 - FR-16 設定画面ガード（拡張）
+- FR-17 サブスク管理導線
 
 v1.1の完了条件:
 - AC-05 を満たすこと。
+- 解約/支払い方法変更をユーザー自身で実行できること。
 
 ### 11.3 将来改善（v1.2+候補）
 - 解除検知のポーリング最適化（サーバー負荷/遅延の改善）。
 - 監視・運用強化（フロント/拡張/Edge Function のエラートラッキング）。
 - 本番運用向け設定UI強化（ドメイン検証、設定バリデーション、監査ログ）。
+
+## 12. 現在の進捗ステータス
+
+### 12.1 実施済み
+- FR-01 ブロック対象判定
+- FR-02 ロック画面表示
+- FR-03 ロック中の再生抑止
+- FR-04 セッション登録・解除検知
+- FR-05 解除猶予・再ロック
+- FR-07 スマホ認証（Google OAuth導線へ切替）
+- FR-08 サブスク状態判定
+- FR-09 決済導線（Checkout起動・Webhook連携）
+- FR-10 セッション開始
+- FR-11 運動検知
+- FR-12 カメラ・ガイダンス
+- FR-13 完了・解除信号送信
+- FR-14 セッション中断/再開
+- FR-15 PWA/キャッシュ
+
+### 12.2 進行中
+- FR-09 決済導線の最終安定化（価格ID/キー/エラーハンドリング最終調整）
+
+### 12.3 未着手/残タスク
+- FR-17 サブスク管理導線（Customer Portal）
+- `unlock_session` 側の paid-user 強制チェック（サーバー側最終ガード）
+- 決済成功/キャンセル戻り時の明示UI
+
+## 13. 完成までのフェーズ定義（実行順）
+
+### Phase A: Billing Hardening
+- 目的: 課金導線を本番運用可能な品質にする。
+- 作業:
+  - Stripe/Supabase Secrets最終確定
+  - `create-checkout`/`stripe-webhook` の本番想定テスト
+  - 決済後リダイレクト体験の整備
+- 完了条件:
+  - テスト決済成功で `subscription_status=active` に更新
+  - 解約イベントで `inactive` へ戻る
+
+### Phase B: Account Management
+- 目的: ユーザー自身が契約を管理できる状態にする。
+- 作業:
+  - `create-customer-portal` 実装
+  - `Manage Subscription` UI追加
+- 完了条件:
+  - 解約/支払い方法変更がセルフサービスで完了する
+
+### Phase C: Server-Side Enforcement
+- 目的: クライアント改ざんに依存しない権限制御を確立する。
+- 作業:
+  - `unlock_session` 実行時に `active` 会員チェックを強制
+  - 追加RLS/権限見直し
+- 完了条件:
+  - 非課金アカウントではサーバー側で解除不可
+
+### Phase D: Release Prep
+- 目的: 提出・運用を含めたリリース実施。
+- 作業:
+  - ストア提出物（説明、権限理由、ポリシー）
+  - 実機通し試験（iOS/Android）
+  - 運用Runbook最終化
+- 完了条件:
+  - リリース判定項目を全通過
+
+## 14. Auto Progress Snapshot
+
+<!-- AUTO_STATUS_START -->
+Last auto update: 2026-02-12
+
+| Phase | Completed | Total | Progress | Status |
+|---|---:|---:|---:|---|
+| A | 0 | 4 | 0% | pending |
+| B | 0 | 2 | 0% | pending |
+| C | 0 | 2 | 0% | pending |
+| D | 0 | 3 | 0% | pending |
+
+Overall progress: **0 / 11 (0%)**
+<!-- AUTO_STATUS_END -->
+
+## 15. Phase Task Checklist (Automation Source)
+
+このチェックリストを更新すると、GitHub Actions が `14. Auto Progress Snapshot` を自動更新します。
+
+<!-- AUTO_TASKS_START -->
+### Phase A (Billing Hardening)
+- [ ] A-01 Secrets整備（Stripe/Supabase）
+- [ ] A-02 create-checkout / stripe-webhook本番想定テスト
+- [ ] A-03 決済後リダイレクト体験整備
+- [ ] A-04 subscription_status遷移の通し確認
+
+### Phase B (Account Management)
+- [ ] B-01 create-customer-portal 実装
+- [ ] B-02 Manage Subscription UI実装
+
+### Phase C (Server-Side Enforcement)
+- [ ] C-01 unlock_sessionでactive会員チェック強制
+- [ ] C-02 RLS/権限の最終見直し
+
+### Phase D (Release Prep)
+- [ ] D-01 ストア提出物作成（説明・権限理由・ポリシー）
+- [ ] D-02 実機通し試験（iOS/Android）
+- [ ] D-03 運用Runbook最終化
+<!-- AUTO_TASKS_END -->
