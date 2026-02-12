@@ -20,6 +20,9 @@ console.log('[THE TOLL] Content script loaded: ' + window.location.href);
   let observer = null;
   let reLockTimer = null;
   let countdownHUD = null;
+  const FREE_MAX_SITES = 3;
+  let isProUser = false;
+  let lastEntitlementFetch = 0;
 
   // ============================================
   // ユーティリティ関数
@@ -49,6 +52,63 @@ console.log('[THE TOLL] Content script loaded: ' + window.location.href);
     } catch (e) {
       console.error('[THE TOLL] Error accessing storage for Session ID:', e);
       return generateSessionId(); // フォールバック
+    }
+  }
+
+  function generateDeviceId() {
+    return 'dev-' + Math.random().toString(36).slice(2, 12);
+  }
+
+  async function getOrCreateDeviceId() {
+    if (!isExtensionContextValid()) return 'DEV_INVALID';
+    try {
+      const data = await chrome.storage.local.get('toll_device_id');
+      let deviceId = data.toll_device_id;
+      if (!deviceId) {
+        deviceId = generateDeviceId();
+        await chrome.storage.local.set({ toll_device_id: deviceId });
+      }
+      return deviceId;
+    } catch (e) {
+      return generateDeviceId();
+    }
+  }
+
+  function isTrialActive(trialEndsAt) {
+    if (!trialEndsAt) return false;
+    const t = new Date(trialEndsAt).getTime();
+    return Number.isFinite(t) && t > Date.now();
+  }
+
+  async function refreshEntitlement(force = false) {
+    const now = Date.now();
+    if (!force && now - lastEntitlementFetch < 5 * 60 * 1000) return;
+    lastEntitlementFetch = now;
+
+    try {
+      const deviceId = await getOrCreateDeviceId();
+      const url = `${SUPABASE_URL}/rest/v1/device_links?device_id=eq.${encodeURIComponent(deviceId)}&select=plan_tier,subscription_status,trial_ends_at`;
+      const res = await fetch(url, {
+        headers: {
+          apikey: SUPABASE_ANON_KEY,
+          Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+        },
+        cache: 'no-store',
+      });
+      if (!res.ok) {
+        isProUser = false;
+        return;
+      }
+      const rows = await res.json();
+      const row = rows && rows[0];
+      if (!row) {
+        isProUser = false;
+        return;
+      }
+      const sub = String(row.subscription_status || '').toLowerCase();
+      isProUser = sub === 'active' || isTrialActive(row.trial_ends_at);
+    } catch (e) {
+      isProUser = false;
     }
   }
 
@@ -83,9 +143,12 @@ console.log('[THE TOLL] Content script loaded: ' + window.location.href);
       }
       
       const settings = await chrome.storage.local.get(['blocked_sites', 'custom_blocked_sites', 'adult_block_enabled']);
-      const blockedSites = settings.blocked_sites || ['youtube.com'];
-      const customSites = settings.custom_blocked_sites || [];
-      const adultBlockEnabled = settings.adult_block_enabled || false;
+      const blockedSitesRaw = settings.blocked_sites || ['youtube.com'];
+      const customSitesRaw = settings.custom_blocked_sites || [];
+      const adultBlockEnabledRaw = settings.adult_block_enabled || false;
+      const blockedSites = isProUser ? blockedSitesRaw : blockedSitesRaw.slice(0, FREE_MAX_SITES);
+      const customSites = isProUser ? customSitesRaw : [];
+      const adultBlockEnabled = isProUser ? adultBlockEnabledRaw : false;
       
       const currentHost = window.location.hostname.toLowerCase();
       
@@ -242,8 +305,9 @@ console.log('[THE TOLL] Content script loaded: ' + window.location.href);
     overlay.id = 'toll-overlay';
     
     const settings = await chrome.storage.local.get('target_squat_count');
-    const targetCount = settings.target_squat_count || 5;
-    const appUrl = `${SMARTPHONE_APP_URL}?session=${sessionId}&target=${targetCount}`;
+    const targetCount = isProUser ? (settings.target_squat_count || 5) : 10;
+    const deviceId = await getOrCreateDeviceId();
+    const appUrl = `${SMARTPHONE_APP_URL}?session=${sessionId}&target=${targetCount}&device=${encodeURIComponent(deviceId)}`;
     
     overlay.innerHTML = `
       <div class="toll-container">
@@ -331,7 +395,7 @@ console.log('[THE TOLL] Content script loaded: ' + window.location.href);
     
     // 設定から時間を取得して有効期限を計算
     const settings = await chrome.storage.local.get('lock_duration_min');
-    const durationMin = settings.lock_duration_min || 20;
+    const durationMin = isProUser ? (settings.lock_duration_min || 20) : 5;
     const expirationTime = now + (durationMin * 60 * 1000);
 
     // 再ロックタイマーをセット
@@ -560,6 +624,7 @@ console.log('[THE TOLL] Content script loaded: ' + window.location.href);
   // 状態をチェックして適切なアクション（ロック/解除/タイマー開始）を実行
   async function checkAndApplyState() {
     debugLog('--- checkAndApplyState 開始 ---');
+    await refreshEntitlement(false);
     
     if (!isExtensionContextValid()) {
       console.warn('[THE TOLL] Extension context invalidated. Injecting reload warning.');
@@ -592,7 +657,7 @@ console.log('[THE TOLL] Content script loaded: ' + window.location.href);
       
       const now = Date.now();
       const lastUnlock = data.last_global_unlock_time || 0;
-      const durationMin = data.lock_duration_min || 20;
+      const durationMin = isProUser ? (data.lock_duration_min || 20) : 5;
       const durationMs = durationMin * 60 * 1000;
       const timeSinceUnlock = now - lastUnlock;
       const timeRemaining = durationMs - timeSinceUnlock;
@@ -643,6 +708,7 @@ console.log('[THE TOLL] Content script loaded: ' + window.location.href);
 
   // スケジュール内かどうかをチェック
   async function isWithinSchedule() {
+    if (!isProUser) return true;
     const data = await chrome.storage.local.get('lock_schedule');
     const schedule = data.lock_schedule;
     if (!schedule) return true;
@@ -667,7 +733,7 @@ console.log('[THE TOLL] Content script loaded: ' + window.location.href);
     const data = await chrome.storage.local.get(['last_global_unlock_time', 'lock_duration_min', 'lock_schedule']);
     const now = Date.now();
     const lastUnlock = data.last_global_unlock_time || 0;
-    const durationMin = data.lock_duration_min || 20;
+    const durationMin = isProUser ? (data.lock_duration_min || 20) : 5;
     const durationMs = durationMin * 60 * 1000;
     const timeSinceUnlock = now - lastUnlock;
     const timeRemaining = durationMs - timeSinceUnlock;
@@ -688,6 +754,7 @@ console.log('[THE TOLL] Content script loaded: ' + window.location.href);
 
   async function init() {
     debugLog('THE TOLL 初期化開始...');
+    await refreshEntitlement(true);
 
     const isBlocked = await isCurrentSiteBlocked();
     if (!isBlocked) {

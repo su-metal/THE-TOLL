@@ -94,6 +94,7 @@
     trialEndsAt: null,
     trialDaysLeft: 0,
     isPro: false,
+    linkedDeviceId: null,
     sessionId: null,
     squatCount: 0,
     targetCount: 20, // デフォルト
@@ -136,6 +137,7 @@
     manageSubscriptionBtn: document.getElementById('manage-subscription-btn'),
     toSessionBtn: document.getElementById('to-session-btn'),
     logoutBtn: document.getElementById('logout-btn'),
+    sessionLogoutBtn: document.getElementById('session-logout-btn'),
 
     sessionScreen: document.getElementById('session-screen'),
     sessionInput: document.getElementById('session-input'),
@@ -196,6 +198,32 @@
   function showScreen(screenId) {
     document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
     document.getElementById(screenId).classList.add('active');
+  }
+  function normalizeDeviceId(raw) {
+    const v = String(raw || '').trim();
+    if (!v) return null;
+    if (!/^[a-zA-Z0-9_-]{6,80}$/.test(v)) return null;
+    return v;
+  }
+  async function syncDeviceLink() {
+    if (!state.user || !state.linkedDeviceId) return;
+    try {
+      const statusForDevice = state.isPro ? 'active' : 'inactive';
+      const tierForDevice = state.isPro ? 'pro' : 'free';
+      await state.supabase
+        .from('device_links')
+        .upsert({
+          device_id: state.linkedDeviceId,
+          user_id: state.user.id,
+          subscription_status: statusForDevice,
+          plan_tier: tierForDevice,
+          trial_ends_at: state.trialEndsAt,
+          updated_at: new Date().toISOString(),
+          last_seen_at: new Date().toISOString()
+        }, { onConflict: 'device_id' });
+    } catch (e) {
+      debugLog('Device link sync failed: ' + (e?.message || e));
+    }
   }
 
   function toggleFullscreen() {
@@ -290,6 +318,7 @@
       state.trialEndsAt = profile.trial_ends_at || null;
       state.trialDaysLeft = trialDaysLeft;
       state.isPro = isPro;
+      await syncDeviceLink();
 
       if (isActive) {
         elements.subscriptionStatusBadge.textContent = t('membership_active');
@@ -1021,6 +1050,12 @@
     // イベントリスナー
     elements.googleLoginBtn.onclick = handleGoogleLogin;
     elements.logoutBtn.onclick = handleLogout;
+    if (elements.sessionLogoutBtn) {
+      elements.sessionLogoutBtn.onclick = async (e) => {
+        e.preventDefault();
+        await handleLogout();
+      };
+    }
     elements.subscribeBtn.onclick = handleSubscribe;
     if (elements.manageSubscriptionBtn) {
       elements.manageSubscriptionBtn.onclick = handleManageSubscription;
@@ -1047,6 +1082,15 @@
     const target = urlParams.get('target');
     const checkout = urlParams.get('checkout');
     const portal = urlParams.get('portal');
+    const deviceParam = normalizeDeviceId(urlParams.get('device'));
+
+    const storedDeviceId = normalizeDeviceId(localStorage.getItem('the_toll_device_id'));
+    if (deviceParam) {
+      state.linkedDeviceId = deviceParam;
+      localStorage.setItem('the_toll_device_id', deviceParam);
+    } else if (storedDeviceId) {
+      state.linkedDeviceId = storedDeviceId;
+    }
 
     if (checkout === 'success') {
       alert(t('checkout_success_message'));
@@ -1073,6 +1117,12 @@
       const params = new URLSearchParams(window.location.search);
       params.delete('checkout');
       params.delete('portal');
+      params.delete('device');
+      const next = `${window.location.pathname}${params.toString() ? `?${params.toString()}` : ''}`;
+      window.history.replaceState({}, document.title, next);
+    } else if (deviceParam) {
+      const params = new URLSearchParams(window.location.search);
+      params.delete('device');
       const next = `${window.location.pathname}${params.toString() ? `?${params.toString()}` : ''}`;
       window.history.replaceState({}, document.title, next);
     }

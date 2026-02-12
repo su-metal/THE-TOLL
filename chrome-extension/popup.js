@@ -9,6 +9,57 @@ document.addEventListener('DOMContentLoaded', async () => {
   const SMARTPHONE_APP_URL = 'https://smartphone-app-pi.vercel.app/';
   const SUPABASE_URL = 'https://qcnzleiyekbgsiyomwin.supabase.co';
   const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFjbnpsZWl5ZWtiZ3NpeW9td2luIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg0Mjk2NzMsImV4cCI6MjA4NDAwNTY3M30.NlGUfxDPzMgtu_J0vX7FMe-ikxafboGh5GMr-tsaLfI';
+  const FREE_MAX_SITES = 3;
+
+  function generateDeviceId() {
+    return 'dev-' + Math.random().toString(36).slice(2, 12);
+  }
+
+  async function getOrCreateDeviceId() {
+    const data = await chrome.storage.local.get('toll_device_id');
+    let deviceId = data.toll_device_id;
+    if (!deviceId) {
+      deviceId = generateDeviceId();
+      await chrome.storage.local.set({ toll_device_id: deviceId });
+    }
+    return deviceId;
+  }
+
+  function isTrialActive(trialEndsAt) {
+    if (!trialEndsAt) return false;
+    const t = new Date(trialEndsAt).getTime();
+    return Number.isFinite(t) && t > Date.now();
+  }
+
+  async function fetchEntitlement(deviceId) {
+    const url = `${SUPABASE_URL}/rest/v1/device_links?device_id=eq.${encodeURIComponent(deviceId)}&select=plan_tier,subscription_status,trial_ends_at`;
+    try {
+      const res = await fetch(url, {
+        headers: {
+          apikey: SUPABASE_ANON_KEY,
+          Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+        },
+        cache: 'no-store',
+      });
+      if (!res.ok) return { isPro: false, reason: `HTTP ${res.status}` };
+      const rows = await res.json();
+      const row = rows && rows[0];
+      if (!row) return { isPro: false, reason: 'not_linked' };
+      const sub = String(row.subscription_status || '').toLowerCase();
+      const isPro = sub === 'active' || isTrialActive(row.trial_ends_at);
+      return { isPro, reason: isPro ? 'pro_or_trial' : 'free' };
+    } catch (e) {
+      return { isPro: false, reason: 'fetch_error' };
+    }
+  }
+
+  function openUpgrade(deviceId) {
+    chrome.tabs.create({ url: `${SMARTPHONE_APP_URL}?device=${encodeURIComponent(deviceId)}` });
+  }
+
+  const deviceId = await getOrCreateDeviceId();
+  const entitlement = await fetchEntitlement(deviceId);
+  const isProUser = entitlement.isPro;
 
   // 0. Incognito Check
   const incognitoWarning = document.getElementById('incognito-warning');
@@ -24,14 +75,32 @@ document.addEventListener('DOMContentLoaded', async () => {
     chrome.tabs.create({ url: 'chrome://extensions/?id=' + chrome.runtime.id });
   });
 
+  statusMsg.textContent = isProUser ? 'PLAN: PRO/TRIAL' : 'PLAN: FREE (LINK DEVICE TO UPGRADE)';
+  if (!isProUser && unlockBtn) {
+    unlockBtn.disabled = true;
+    unlockBtn.textContent = 'PRO ONLY';
+  }
+
   // --- Initialize Settings Logic ---
   
   // 0. Adult Block Toggle
   const adultBlockToggle = document.getElementById('adult-block-toggle');
   const adultBlockData = await chrome.storage.local.get('adult_block_enabled');
-  adultBlockToggle.checked = adultBlockData.adult_block_enabled || false;
+  adultBlockToggle.checked = isProUser ? (adultBlockData.adult_block_enabled || false) : false;
+  if (!isProUser) {
+    await chrome.storage.local.set({ adult_block_enabled: false });
+    adultBlockToggle.disabled = true;
+  }
 
   adultBlockToggle.addEventListener('change', async (e) => {
+    if (!isProUser) {
+      e.target.checked = false;
+      await chrome.storage.local.set({ adult_block_enabled: false });
+      statusMsg.textContent = 'PRO FEATURE: ADULT BLOCK';
+      showSavedStatus();
+      openUpgrade(deviceId);
+      return;
+    }
     await chrome.storage.local.set({ adult_block_enabled: e.target.checked });
     showSavedStatus();
   });
@@ -39,14 +108,29 @@ document.addEventListener('DOMContentLoaded', async () => {
   // 1. Durations
   const radioButtons = document.querySelectorAll('input[name="duration"]');
   const durationData = await chrome.storage.local.get('lock_duration_min');
-  const savedDuration = durationData.lock_duration_min || 20;
+  let savedDuration = durationData.lock_duration_min || 20;
+  if (!isProUser) {
+    savedDuration = 5;
+    await chrome.storage.local.set({ lock_duration_min: 5 });
+  }
 
   radioButtons.forEach(radio => {
     if (parseInt(radio.value) === savedDuration) radio.checked = true;
     radio.addEventListener('change', async (e) => {
+      if (!isProUser) {
+        await chrome.storage.local.set({ lock_duration_min: 5 });
+        radioButtons.forEach(r => { r.checked = parseInt(r.value) === 5; });
+        statusMsg.textContent = 'PRO FEATURE: CUSTOM GRACE PERIOD';
+        showSavedStatus();
+        openUpgrade(deviceId);
+        return;
+      }
       await chrome.storage.local.set({ lock_duration_min: parseInt(e.target.value) });
       showSavedStatus();
     });
+    if (!isProUser) {
+      radio.disabled = parseInt(radio.value) !== 5;
+    }
   });
 
   // 2. Schedule
@@ -60,6 +144,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     start: "09:00", 
     end: "18:00" 
   };
+  if (!isProUser) {
+    schedule.days = [0, 1, 2, 3, 4, 5, 6];
+    schedule.start = '00:00';
+    schedule.end = '23:59';
+    await chrome.storage.local.set({ lock_schedule: schedule });
+  }
 
   dayChecks.forEach(check => {
     check.checked = schedule.days.includes(parseInt(check.dataset.day));
@@ -69,8 +159,22 @@ document.addEventListener('DOMContentLoaded', async () => {
   endTimeInput.value = schedule.end;
   startTimeInput.addEventListener('change', saveSchedule);
   endTimeInput.addEventListener('change', saveSchedule);
+  if (!isProUser) {
+    dayChecks.forEach(c => c.disabled = true);
+    startTimeInput.disabled = true;
+    endTimeInput.disabled = true;
+  }
 
   async function saveSchedule() {
+    if (!isProUser) {
+      await chrome.storage.local.set({
+        lock_schedule: { days: [0, 1, 2, 3, 4, 5, 6], start: '00:00', end: '23:59' }
+      });
+      statusMsg.textContent = 'PRO FEATURE: LOCK SCHEDULE';
+      showSavedStatus();
+      openUpgrade(deviceId);
+      return;
+    }
     const activeDays = Array.from(dayChecks).filter(c => c.checked).map(c => parseInt(c.dataset.day));
     await chrome.storage.local.set({
       lock_schedule: { days: activeDays, start: startTimeInput.value, end: endTimeInput.value }
@@ -86,10 +190,22 @@ document.addEventListener('DOMContentLoaded', async () => {
   // 3. Squat Target
   const squatInput = document.getElementById('squat-target-input');
   const squatData = await chrome.storage.local.get('target_squat_count');
-  const savedSquatTarget = squatData.target_squat_count || 5;
+  const savedSquatTarget = isProUser ? (squatData.target_squat_count || 5) : 10;
   
   squatInput.value = savedSquatTarget;
+  if (!isProUser) {
+    await chrome.storage.local.set({ target_squat_count: 10 });
+    squatInput.disabled = true;
+  }
   squatInput.addEventListener('change', async (e) => {
+    if (!isProUser) {
+      squatInput.value = 10;
+      await chrome.storage.local.set({ target_squat_count: 10 });
+      statusMsg.textContent = 'PRO FEATURE: CUSTOM REP COUNT';
+      showSavedStatus();
+      openUpgrade(deviceId);
+      return;
+    }
     let val = parseInt(e.target.value);
     if (isNaN(val) || val < 1) val = 1;
     squatInput.value = val;
@@ -104,8 +220,16 @@ document.addEventListener('DOMContentLoaded', async () => {
   const customSitesList = document.getElementById('custom-sites-list');
 
   const sitesData = await chrome.storage.local.get(['blocked_sites', 'custom_blocked_sites']);
-  const savedSites = sitesData.blocked_sites || ['youtube.com'];
+  let savedSites = sitesData.blocked_sites || ['youtube.com'];
+  if (!isProUser) {
+    savedSites = savedSites.slice(0, FREE_MAX_SITES);
+    await chrome.storage.local.set({ blocked_sites: savedSites });
+  }
   let customSites = sitesData.custom_blocked_sites || [];
+  if (!isProUser && customSites.length > 0) {
+    customSites = [];
+    await chrome.storage.local.set({ custom_blocked_sites: [] });
+  }
   
   // プリセットの初期化
   siteChecks.forEach(check => {
@@ -129,6 +253,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     // 削除ボタンのイベント
     customSitesList.querySelectorAll('.remove-btn').forEach(btn => {
       btn.addEventListener('click', async (e) => {
+        if (!isProUser) {
+          statusMsg.textContent = 'PRO FEATURE: CUSTOM DOMAINS';
+          showSavedStatus();
+          openUpgrade(deviceId);
+          return;
+        }
         const idx = parseInt(e.target.dataset.index);
         customSites.splice(idx, 1);
         await chrome.storage.local.set({ custom_blocked_sites: customSites });
@@ -139,6 +269,12 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   addCustomBtn.addEventListener('click', async () => {
+    if (!isProUser) {
+      statusMsg.textContent = 'PRO FEATURE: CUSTOM DOMAINS';
+      showSavedStatus();
+      openUpgrade(deviceId);
+      return;
+    }
     const domain = customInput.value.trim().toLowerCase();
     if (domain && !customSites.includes(domain)) {
       customSites.push(domain);
@@ -150,9 +286,20 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   renderCustomSites();
+  if (!isProUser) {
+    customInput.disabled = true;
+    addCustomBtn.disabled = true;
+  }
 
-  async function saveBlockedSites() {
+  async function saveBlockedSites(e) {
     const activeSites = Array.from(siteChecks).filter(c => c.checked).map(c => c.value);
+    if (!isProUser && activeSites.length > FREE_MAX_SITES) {
+      if (e?.target) e.target.checked = false;
+      statusMsg.textContent = 'FREE LIMIT: UP TO 3 SITES';
+      showSavedStatus();
+      openUpgrade(deviceId);
+      return;
+    }
     await chrome.storage.local.set({ blocked_sites: activeSites });
     showSavedStatus();
   }
@@ -171,7 +318,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     qrEl.innerHTML = '';
     if (typeof QRCode !== 'undefined') {
       new QRCode(qrEl, {
-        text: `${SMARTPHONE_APP_URL}?session=${sessionId}`,
+        text: `${SMARTPHONE_APP_URL}?session=${sessionId}&device=${encodeURIComponent(deviceId)}`,
         width: 120,
         height: 120,
         colorDark: '#000000',
