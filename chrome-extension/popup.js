@@ -109,11 +109,22 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   const deviceId = await getOrCreateDeviceId();
-  let entitlement = await fetchEntitlementByAuth();
-  if (!entitlement) {
-    entitlement = await fetchEntitlement(deviceId);
+  let entitlement = { isPro: false, reason: 'init_default' };
+  let isProUser = false;
+  try {
+    const authEntitlement = await fetchEntitlementByAuth();
+    if (authEntitlement) {
+      entitlement = authEntitlement;
+    } else {
+      entitlement = await fetchEntitlement(deviceId);
+    }
+    isProUser = !!entitlement.isPro;
+  } catch (e) {
+    entitlement = { isPro: false, reason: 'init_error' };
+    isProUser = false;
+    statusMsg.textContent = 'INIT WARNING: CONTINUING IN FREE MODE';
+    showSavedStatus();
   }
-  let isProUser = entitlement.isPro;
   updateAuthUi();
 
   // 0. Incognito Check
