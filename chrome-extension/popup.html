@@ -9,6 +9,11 @@
     <div class="header">
       <h1>THE TOLL</h1>
       <p class="subtitle">LOCK DURATION SETTINGS</p>
+      <div style="display:flex; gap:8px; justify-content:center; margin-top:8px;">
+        <button id="auth-login-btn" class="add-btn">LOGIN WITH GOOGLE</button>
+        <button id="auth-logout-btn" class="add-btn hidden">LOGOUT</button>
+      </div>
+      <p id="auth-user-label" style="font-size:11px; opacity:0.7; margin-top:6px;"></p>
     </div>
 
     <!-- Incognito Warning -->
@@ -146,6 +151,7 @@
     </div>
   </div>
   <script src="lib/qrcode.min.js"></script>
+  <script src="lib/supabase.min.js"></script>
   <script src="popup.js"></script>
 </body>
 </html>

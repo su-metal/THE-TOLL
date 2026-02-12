@@ -63,6 +63,11 @@ serve(async (req: Request) => {
         .eq("id", user.id);
     }
 
+    const origin = req.headers.get("origin") || "";
+    const appUrl = /^https?:\/\//.test(origin)
+      ? origin
+      : (Deno.env.get("PUBLIC_APP_URL") || "https://smartphone-app-pi.vercel.app");
+
     // Create checkout session
     const session = await stripe.checkout.sessions.create({
       customer: customerId,
@@ -78,8 +83,8 @@ serve(async (req: Request) => {
         currency,
         supabase_user_id: user.id,
       },
-      success_url: `${req.headers.get("origin")}/?checkout=success`,
-      cancel_url: `${req.headers.get("origin")}/?checkout=cancel`,
+      success_url: `${appUrl}/?checkout=success`,
+      cancel_url: `${appUrl}/?checkout=cancel`,
     });
 
     return new Response(JSON.stringify({ url: session.url }), {
