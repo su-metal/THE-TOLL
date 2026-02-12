@@ -73,6 +73,11 @@ serve(async (req: Request) => {
         },
       ],
       mode: "subscription",
+      metadata: {
+        plan,
+        currency,
+        supabase_user_id: user.id,
+      },
       success_url: `${req.headers.get("origin")}/?checkout=success`,
       cancel_url: `${req.headers.get("origin")}/?checkout=cancel`,
     });

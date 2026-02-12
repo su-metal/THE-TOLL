@@ -16,8 +16,18 @@
       logged_in_as: 'Logged in:',
       membership_checking: 'Checking membership...',
       membership_check_failed: 'Membership check failed',
+      membership_active: 'MEMBERSHIP: ACTIVE',
+      membership_trial: 'MEMBERSHIP: TRIAL',
+      membership_free: 'MEMBERSHIP: FREE',
       go_to_session: 'Go to PC Session',
+      go_to_session_free: 'Go to PC Session (Free)',
+      upgrade_to_pro: 'UPGRADE TO PRO',
       subscription_required: 'Paid plan required',
+      manage_subscription: 'Manage Subscription',
+      trial_days_left: 'TRIAL: {days} day(s) left',
+      open_customer_portal_failed: 'Failed to open customer portal.',
+      checkout_success_message: 'Payment completed. Membership will be reflected shortly.',
+      checkout_cancel_message: 'Checkout was canceled.',
       google_login_failed: 'Google login failed: ',
       google_login_network_error: 'Google login failed due to network error.',
       checkout_url_failed: 'Failed to get checkout URL.',
@@ -37,8 +47,18 @@
       logged_in_as: 'ログイン中:',
       membership_checking: '会員確認中...',
       membership_check_failed: '会員確認に失敗しました',
+      membership_active: '会員ステータス: 有効',
+      membership_trial: '会員ステータス: トライアル',
+      membership_free: '会員ステータス: 無料',
       go_to_session: 'PC連携へ進む',
+      go_to_session_free: 'PC連携へ進む（無料）',
+      upgrade_to_pro: 'PROへアップグレード',
       subscription_required: 'サブスク登録が必要です',
+      manage_subscription: 'サブスク管理',
+      trial_days_left: 'トライアル残り {days} 日',
+      open_customer_portal_failed: 'サブスク管理ページを開けませんでした。',
+      checkout_success_message: '決済が完了しました。会員状態の反映まで少し待ってください。',
+      checkout_cancel_message: '決済はキャンセルされました。',
       google_login_failed: 'Googleログイン失敗: ',
       google_login_network_error: 'Googleログインに失敗しました。ネットワークを確認してください。',
       checkout_url_failed: '決済URLの取得に失敗しました。',
@@ -55,7 +75,13 @@
       confirm_cancel_training: 'トレーニングを中断しますか？'
     }
   };
-  const t = (key) => (I18N[APP_LANG] && I18N[APP_LANG][key]) || I18N.en[key] || key;
+  const t = (key, vars = {}) => {
+    const base = (I18N[APP_LANG] && I18N[APP_LANG][key]) || I18N.en[key] || key;
+    return Object.keys(vars).reduce(
+      (acc, k) => acc.replaceAll(`{${k}}`, String(vars[k])),
+      base
+    );
+  };
 
   // ============================================
   // 状態管理
@@ -64,6 +90,10 @@
     supabase: null,
     user: null,
     subscriptionStatus: 'inactive',
+    planTier: 'free',
+    trialEndsAt: null,
+    trialDaysLeft: 0,
+    isPro: false,
     sessionId: null,
     squatCount: 0,
     targetCount: 20, // デフォルト
@@ -100,8 +130,10 @@
     googleLoginBtn: document.getElementById('google-login-btn'),
     userDisplayEmail: document.getElementById('user-display-email'),
     subscriptionStatusBadge: document.getElementById('subscription-status-badge'),
+    trialBadge: document.getElementById('trial-badge'),
     installBtn: document.getElementById('install-btn'),
     subscribeBtn: document.getElementById('subscribe-btn'),
+    manageSubscriptionBtn: document.getElementById('manage-subscription-btn'),
     toSessionBtn: document.getElementById('to-session-btn'),
     logoutBtn: document.getElementById('logout-btn'),
 
@@ -146,6 +178,20 @@
 
 
   function updateStatus(text) { elements.statusLabel.textContent = text; }
+  function setManageSubscriptionVisible(visible) {
+    if (!elements.manageSubscriptionBtn) return;
+    elements.manageSubscriptionBtn.classList.toggle('hidden', !visible);
+  }
+  function setTrialBadge(text) {
+    if (!elements.trialBadge) return;
+    if (!text) {
+      elements.trialBadge.classList.add('hidden');
+      elements.trialBadge.textContent = '';
+      return;
+    }
+    elements.trialBadge.textContent = text;
+    elements.trialBadge.classList.remove('hidden');
+  }
 
   function showScreen(screenId) {
     document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
@@ -178,6 +224,7 @@
     elements.toSessionBtn.disabled = true;
     elements.toSessionBtn.textContent = t('membership_checking');
     elements.subscribeBtn.classList.add('hidden');
+    setManageSubscriptionVisible(false);
     elements.subscriptionStatusBadge.textContent = 'MEMBERSHIP: CHECKING';
     elements.subscriptionStatusBadge.className = 'status-inactive';
 
@@ -189,7 +236,7 @@
       for (let i = 0; i < 8; i++) {
         const { data, error } = await state.supabase
           .from('profiles')
-          .select('subscription_status')
+          .select('subscription_status, plan_tier, trial_ends_at, trial_used')
           .eq('id', user.id)
           .single();
         profile = data || null;
@@ -202,40 +249,93 @@
         debugLog('Profile missing or unreadable: ' + (lastError?.message || 'no row'));
         elements.subscriptionStatusBadge.textContent = 'MEMBERSHIP: VERIFY FAILED';
         elements.subscriptionStatusBadge.className = 'status-inactive';
+        setTrialBadge('');
         elements.toSessionBtn.disabled = true;
         elements.toSessionBtn.textContent = t('membership_check_failed');
         elements.subscribeBtn.classList.remove('hidden');
+        setManageSubscriptionVisible(false);
         return;
+      }
+
+      // Initialize one-time 7-day trial for new free users.
+      if (!profile.trial_ends_at && !profile.trial_used && profile.subscription_status !== 'active') {
+        const trialEnds = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+        const { error: trialInitError } = await state.supabase
+          .from('profiles')
+          .update({ trial_ends_at: trialEnds, trial_used: true, plan_tier: 'free' })
+          .eq('id', user.id);
+        if (!trialInitError) {
+          profile.trial_ends_at = trialEnds;
+          profile.trial_used = true;
+          if (!profile.plan_tier) profile.plan_tier = 'free';
+        } else {
+          debugLog('Trial init skipped: ' + trialInitError.message);
+        }
       }
 
       const rawStatus = (profile.subscription_status || 'inactive').toString();
       const normalizedStatus = rawStatus.trim().toLowerCase();
+      const planTier = (profile.plan_tier || 'free').toString().trim().toLowerCase();
+      const trialEndsAt = profile.trial_ends_at ? new Date(profile.trial_ends_at) : null;
+      const now = new Date();
+      const isTrialActive = !!(trialEndsAt && trialEndsAt.getTime() > now.getTime());
       const isActive = normalizedStatus === 'active';
-      state.subscriptionStatus = normalizedStatus;
+      const isPro = isActive || isTrialActive;
+      const trialDaysLeft = isTrialActive
+        ? Math.max(1, Math.ceil((trialEndsAt.getTime() - now.getTime()) / (24 * 60 * 60 * 1000)))
+        : 0;
 
-      elements.subscriptionStatusBadge.textContent = `MEMBERSHIP: ${isActive ? 'ACTIVE' : 'INACTIVE'}`;
-      elements.subscriptionStatusBadge.className = isActive ? 'status-active' : 'status-inactive';
+      state.subscriptionStatus = normalizedStatus;
+      state.planTier = planTier;
+      state.trialEndsAt = profile.trial_ends_at || null;
+      state.trialDaysLeft = trialDaysLeft;
+      state.isPro = isPro;
+
+      if (isActive) {
+        elements.subscriptionStatusBadge.textContent = t('membership_active');
+        elements.subscriptionStatusBadge.className = 'status-active';
+        setTrialBadge('');
+      } else if (isTrialActive) {
+        elements.subscriptionStatusBadge.textContent = t('membership_trial');
+        elements.subscriptionStatusBadge.className = 'status-active';
+        setTrialBadge(t('trial_days_left', { days: trialDaysLeft }));
+      } else {
+        elements.subscriptionStatusBadge.textContent = t('membership_free');
+        elements.subscriptionStatusBadge.className = 'status-inactive';
+        setTrialBadge('');
+      }
 
       if (isActive) {
         elements.subscribeBtn.classList.add('hidden');
+        setManageSubscriptionVisible(true);
+        if (elements.manageSubscriptionBtn) {
+          elements.manageSubscriptionBtn.textContent = t('manage_subscription');
+        }
         elements.toSessionBtn.disabled = false;
         elements.toSessionBtn.textContent = t('go_to_session');
-        if (elements.authScreen.classList.contains('active')) {
-          setTimeout(() => showScreen('session-screen'), 500);
-        }
+      } else if (isTrialActive) {
+        elements.subscribeBtn.classList.remove('hidden');
+        elements.subscribeBtn.textContent = t('upgrade_to_pro');
+        setManageSubscriptionVisible(false);
+        elements.toSessionBtn.disabled = false;
+        elements.toSessionBtn.textContent = t('go_to_session');
       } else {
         elements.subscribeBtn.classList.remove('hidden');
-        elements.toSessionBtn.disabled = true;
-        elements.toSessionBtn.textContent = t('subscription_required');
+        elements.subscribeBtn.textContent = t('upgrade_to_pro');
+        setManageSubscriptionVisible(false);
+        elements.toSessionBtn.disabled = false;
+        elements.toSessionBtn.textContent = t('go_to_session_free');
       }
     } catch (e) {
       const msg = (e && e.message) ? e.message : String(e);
       debugLog('Profile logic crash: ' + msg);
       elements.subscriptionStatusBadge.textContent = `MEMBERSHIP: ERROR (${msg.slice(0, 18)})`;
       elements.subscriptionStatusBadge.className = 'status-inactive';
+      setTrialBadge('');
       elements.toSessionBtn.disabled = true;
       elements.toSessionBtn.textContent = t('membership_check_failed');
       elements.subscribeBtn.classList.remove('hidden');
+      setManageSubscriptionVisible(false);
     } finally {
       state._membershipCheckInFlight = false;
     }
@@ -291,6 +391,38 @@
     } catch (e) { alert(t('checkout_prepare_failed')); }
   }
 
+  async function handleManageSubscription() {
+    try {
+      const { data: sessionData } = await state.supabase.auth.getSession();
+      const accessToken = sessionData?.session?.access_token;
+      if (!accessToken) {
+        alert('Please log in again before opening subscription settings.');
+        return;
+      }
+
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/create-customer-portal`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${accessToken}`,
+          'apikey': SUPABASE_ANON_KEY
+        }
+      });
+
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const detail = payload?.error || `HTTP ${res.status}`;
+        alert(`${t('open_customer_portal_failed')} ${detail}`);
+        return;
+      }
+
+      if (payload?.url) window.location.href = payload.url;
+      else alert(t('open_customer_portal_failed'));
+    } catch (e) {
+      alert(t('open_customer_portal_failed'));
+    }
+  }
+
   // ============================================
   // セッション・QR
   // ============================================
@@ -312,6 +444,9 @@
     if (sessionId.startsWith('SET-')) {
       state.targetCount = 30;
       debugLog('SETTINGS LOCK MISSION: 30 REPS');
+    } else if (!state.isPro) {
+      state.exerciseType = 'SQUAT';
+      state.targetCount = 10;
     } else if (targetFromUrl) {
       const parsed = parseInt(targetFromUrl);
       if (!isNaN(parsed) && parsed > 0) {
@@ -680,6 +815,12 @@
   }
  
   function cycleExercise() {
+    if (!state.isPro) {
+      state.cycleIndex = 0;
+      state.exerciseType = 'SQUAT';
+      loadNextExercise();
+      return;
+    }
     saveCycleProgress();
     debugLog('Manual Cycle triggered');
   }
@@ -690,7 +831,11 @@
       let idx = parseInt(saved);
       if (isNaN(idx)) idx = 0;
       
-      idx = idx % EXERCISES.length;
+      if (!state.isPro) {
+        idx = 0;
+      } else {
+        idx = idx % EXERCISES.length;
+      }
       state.cycleIndex = idx;
       state.exerciseType = EXERCISES[idx].type;
       
@@ -716,10 +861,12 @@
           elements.overlayUi.classList.remove('landscape-mode');
         }
       }
-      if (elements.nextExerciseDisplay) elements.nextExerciseDisplay.textContent = `NEXT: ${label}`;
+      if (elements.nextExerciseDisplay) {
+        elements.nextExerciseDisplay.textContent = state.isPro ? `NEXT: ${label}` : 'NEXT: SQUAT (FREE)';
+      }
       if (elements.cycleDebugInfo) elements.cycleDebugInfo.textContent = `ID: ${idx}`;
       
-      state.targetCount = EXERCISES[idx].defaultCount;
+      state.targetCount = state.isPro ? EXERCISES[idx].defaultCount : 10;
  
       // ターゲット表示も更新
       if (elements.targetCountDisplay) elements.targetCountDisplay.textContent = state.targetCount;
@@ -875,6 +1022,9 @@
     elements.googleLoginBtn.onclick = handleGoogleLogin;
     elements.logoutBtn.onclick = handleLogout;
     elements.subscribeBtn.onclick = handleSubscribe;
+    if (elements.manageSubscriptionBtn) {
+      elements.manageSubscriptionBtn.onclick = handleManageSubscription;
+    }
     elements.toSessionBtn.onclick = () => showScreen('session-screen');
     elements.startBtn.onclick = () => startSession();
     elements.scanQrBtn.onclick = () => startQRScan();
@@ -895,6 +1045,18 @@
     const urlParams = new URLSearchParams(window.location.search);
     const sid = urlParams.get('session');
     const target = urlParams.get('target');
+    const checkout = urlParams.get('checkout');
+    const portal = urlParams.get('portal');
+
+    if (checkout === 'success') {
+      alert(t('checkout_success_message'));
+      state.user && updateUserInfo(state.user);
+    } else if (checkout === 'cancel') {
+      alert(t('checkout_cancel_message'));
+    }
+    if (portal === 'return' && state.user) {
+      updateUserInfo(state.user);
+    }
     
     if (target) {
       const parsed = parseInt(target);
@@ -907,6 +1069,12 @@
     if (sid) {
       elements.sessionInput.value = sid;
       window.history.replaceState({}, document.title, window.location.pathname);
+    } else if (checkout || portal) {
+      const params = new URLSearchParams(window.location.search);
+      params.delete('checkout');
+      params.delete('portal');
+      const next = `${window.location.pathname}${params.toString() ? `?${params.toString()}` : ''}`;
+      window.history.replaceState({}, document.title, next);
     }
 
     document.addEventListener('click', () => {

@@ -55,9 +55,11 @@
         <div id="user-info" class="hidden">
           <p id="user-display-email" class="session-id-display"></p>
           <div id="subscription-status-badge"></div>
+          <div id="trial-badge" class="hidden" style="margin-top:8px; font-size:0.75rem; opacity:0.85;"></div>
           
           <button id="install-btn" class="btn secondary hidden">INSTALL APP</button>
           <button id="subscribe-btn" class="btn primary">SUBSCRIBE ($49/YEAR)</button>
+          <button id="manage-subscription-btn" class="btn secondary hidden">MANAGE SUBSCRIPTION</button>
           
           <button id="to-session-btn" class="btn secondary">ENTER SESSION</button>
           <button id="logout-btn" class="text-btn">LOGOUT</button>
@@ -185,7 +187,7 @@
     <div id="debug-console"></div>
   </div>
 
-  <script src="app.js?v=2.28"></script>
+  <script src="app.js?v=2.29"></script>
   <script>
     const appLang = new URLSearchParams(window.location.search).get('lang') === 'ja' ? 'ja' : 'en';
     if (appLang === 'ja') {
@@ -196,9 +198,11 @@
       const authGuide1 = document.getElementById('auth-guide-1');
       const authGuide2 = document.getElementById('auth-guide-2');
       const googleLoginBtn = document.getElementById('google-login-btn');
+      const manageSubscriptionBtn = document.getElementById('manage-subscription-btn');
       if (authGuide1) authGuide1.textContent = 'Googleアカウントで登録・ログインします。';
       if (authGuide2) authGuide2.textContent = 'セッション開始には有料プランが必要です。';
       if (googleLoginBtn) googleLoginBtn.textContent = 'Googleで続行';
+      if (manageSubscriptionBtn) manageSubscriptionBtn.textContent = 'サブスク管理';
     }
 
     // 強制リセット関数
