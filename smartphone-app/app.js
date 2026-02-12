@@ -163,8 +163,13 @@
     const email = elements.emailInput.value;
     const password = elements.passwordInput.value;
     if (!email || !password) return alert('メールとパスワードを入力してください');
-    const { error } = await state.supabase.auth.signInWithPassword({ email, password });
-    if (error) alert('ログイン失敗: ' + error.message);
+    try {
+      const { error } = await state.supabase.auth.signInWithPassword({ email, password });
+      if (error) alert('ログイン失敗: ' + error.message);
+    } catch (e) {
+      alert('ログイン失敗: ネットワークエラーです。Supabase接続またはCORS設定を確認してください。');
+      debugLog('Login network error: ' + (e?.message || e));
+    }
   }
 
   async function handleSignup() {

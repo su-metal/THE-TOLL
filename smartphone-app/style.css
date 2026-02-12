@@ -1,19 +1,19 @@
 /* THE TOLL - INDUSTRIAL SPORTS TECH APP STYLE */
 
 :root {
-  --volt: #CCFF00;       /* High Energy Volt */
-  --black: #080808;      /* Matte Black */
-  --dark-grey: #1a1a1a;
-  --mid-grey: #444;
-  --white: #ffffff;
-  --glass: rgba(255, 255, 255, 0.03);
-  --glass-border: rgba(255, 255, 255, 0.1);
+  --pop-yellow: #FFDE59;  /* Bojack Background Yellow */
+  --pop-pink: #FF66C4;    /* Pop Accent Pink */
+  --pop-blue: #5CE1E6;    /* Pop Accent Blue */
+  --pop-black: #000000;   /* Thick Outline Black */
+  --pop-white: #FFFFFF;
+  
+  --border-thick: 5px solid var(--pop-black);
+  --shadow-hard: 8px 8px 0px var(--pop-black);
   
   --font-display: 'Oswald', sans-serif;
-  --font-mono: 'Roboto Mono', monospace;
+  --font-body: 'Verdana', sans-serif;
   
-  --grid-line: rgba(255, 255, 255, 0.05);
-  --primary: var(--volt); /* Alias for compatibility */
+  --primary: var(--pop-pink);
 }
 
 * {
@@ -23,9 +23,9 @@
 }
 
 body {
-  background-color: var(--black);
-  color: var(--white);
-  font-family: var(--font-mono);
+  background-color: var(--pop-yellow);
+  color: var(--pop-black);
+  font-family: var(--font-body);
   overflow: hidden;
   line-height: 1.6;
   height: 100vh;
@@ -36,24 +36,10 @@ body {
   width: 100%;
   height: 100%;
   position: relative;
-  background-color: var(--black);
+  background-color: var(--pop-yellow);
   overflow: hidden;
-}
-
-/* Background FX */
-#app::before {
-  content: "";
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background-image: 
-    linear-gradient(var(--grid-line) 1px, transparent 1px),
-    linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
-  background-size: 50px 50px;
-  pointer-events: none;
-  z-index: 0;
+  background-image: radial-gradient(var(--pop-white) 15%, transparent 16%);
+  background-size: 30px 30px; /* Dot pattern */
 }
 
 #app::after {
@@ -63,7 +49,7 @@ body {
   left: 0;
   width: 100%;
   height: 100%;
-  background: radial-gradient(circle, transparent 20%, var(--black) 95%);
+  background: radial-gradient(circle, transparent 40%, rgba(0,0,0,0.1) 95%);
   pointer-events: none;
   z-index: 1;
 }
@@ -98,40 +84,27 @@ body {
 
 /* Containers */
 .container {
-  width: 100%;
+  width: 90%;
   max-width: 400px;
   padding: 40px 24px;
   text-align: center;
-  background: var(--glass);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid var(--glass-border);
+  background: var(--pop-white);
+  border: var(--border-thick);
+  box-shadow: var(--shadow-hard);
   position: relative;
   z-index: 10;
+  transform: rotate(-1deg);
 }
 
-/* Tactical Corners */
+.container h1 {
+  -webkit-text-stroke: 1px var(--pop-white);
+  text-shadow: 4px 4px 0px var(--pop-black);
+  transform: rotate(-2deg);
+}
+
+/* Tactical Corners - Removed for Pop style */
 .container::before, .container::after {
-  content: "";
-  position: absolute;
-  width: 20px;
-  height: 20px;
-  border: 2px solid var(--volt);
-  pointer-events: none;
-}
-
-.container::before {
-  top: -2px;
-  left: -2px;
-  border-right: none;
-  border-bottom: none;
-}
-
-.container::after {
-  bottom: -2px;
-  right: -2px;
-  border-left: none;
-  border-top: none;
+  display: none;
 }
 
 /* Typography */
@@ -147,12 +120,17 @@ h1 {
 }
 
 .subtitle {
-  font-family: var(--font-mono);
-  font-size: 0.75rem;
-  color: var(--mid-grey);
+  font-family: var(--font-body);
+  font-size: 0.9rem;
+  font-weight: bold;
+  color: var(--pop-black);
   text-transform: uppercase;
-  letter-spacing: 0.2rem;
-  margin-bottom: 40px;
+  margin-bottom: 30px;
+  background: var(--pop-yellow);
+  display: inline-block;
+  padding: 2px 10px;
+  border: 2px solid var(--pop-black);
+  transform: rotate(1deg);
 }
 
 /* Forms & Inputs */
@@ -164,68 +142,69 @@ h1 {
 .input-group label {
   display: block;
   font-family: var(--font-display);
-  font-size: 0.8rem;
-  color: var(--mid-grey);
+  font-size: 1rem;
+  color: var(--pop-black);
   text-transform: uppercase;
-  letter-spacing: 0.1em;
+  font-weight: 900;
   margin-bottom: 8px;
 }
 
 .input-group input {
   width: 100%;
-  background: rgba(255,255,255,0.05);
-  border: 1px solid var(--dark-grey);
+  background: var(--pop-white);
+  border: var(--border-thick);
   padding: 16px 20px;
-  color: var(--white);
-  font-family: var(--font-mono);
-  font-size: 1.2rem;
+  color: var(--pop-black);
+  font-family: var(--font-display);
+  font-size: 1.5rem;
   outline: none;
-  transition: all 0.3s ease;
+  transition: all 0.2s ease;
   text-align: center;
 }
 
 .input-group input:focus {
-  border-color: var(--volt);
-  background: rgba(204, 255, 0, 0.05);
+  background: var(--pop-blue);
+  transform: translate(-2px, -2px);
+  box-shadow: 4px 4px 0px var(--pop-black);
 }
 
-/* Buttons (Mecha Cut / Polygon) */
+/* Buttons (Pop Sticker Style) */
 .btn {
   display: block;
   width: 100%;
-  background: var(--volt);
-  color: var(--black);
+  background: var(--pop-pink);
+  color: var(--pop-white);
   font-family: var(--font-display);
-  font-size: 1.2rem;
-  font-weight: 700;
-  padding: 15px;
-  border: none;
+  font-size: 1.5rem;
+  font-weight: 900;
+  padding: 18px;
+  border: var(--border-thick);
   text-transform: uppercase;
-  clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
+  box-shadow: 6px 6px 0px var(--pop-black);
   transition: all 0.2s cubic-bezier(0.25, 1, 0.5, 1);
-  letter-spacing: 0.05em;
   cursor: pointer;
-  margin-bottom: 15px;
+  margin-bottom: 20px;
+  transform: rotate(-2deg);
 }
 
 .btn:active {
-  transform: scale(0.98);
+  transform: translate(4px, 4px) rotate(-2deg);
+  box-shadow: 0px 0px 0px var(--pop-black);
 }
 
 .btn:disabled {
-  background: var(--mid-grey);
+  background: #ccc;
   color: #888;
+  border-color: #888;
+  box-shadow: none;
   cursor: not-allowed;
+  transform: none;
 }
 
 .btn.secondary {
-  background: var(--dark-grey);
-  color: var(--white);
-  border: 1px solid var(--mid-grey);
-}
-
-.btn.primary {
-  box-shadow: 0 0 20px rgba(204, 255, 0, 0.2);
+  background: var(--pop-blue);
+  color: var(--pop-black);
+  transform: rotate(1deg);
 }
 
 .text-btn {
@@ -242,24 +221,26 @@ h1 {
 /* Status Badges */
 #subscription-status-badge {
   display: inline-block;
-  padding: 4px 12px;
-  font-family: var(--font-mono);
-  font-size: 0.7rem;
-  font-weight: 700;
+  padding: 8px 16px;
+  font-family: var(--font-display);
+  font-size: 1rem;
+  font-weight: 900;
   text-transform: uppercase;
-  letter-spacing: 0.1em;
   margin-bottom: 24px;
-  border: 1px solid var(--dark-grey);
+  background: var(--pop-white);
+  border: var(--border-thick);
+  box-shadow: 4px 4px 0px var(--pop-black);
+  transform: rotate(-1deg);
 }
 
 .status-active {
-  color: var(--volt);
-  border-color: var(--volt) !important;
+  background: var(--pop-yellow) !important;
+  color: var(--pop-black);
 }
 
 .status-inactive {
-  color: #ff3333;
-  border-color: #ff3333 !important;
+  background: var(--pop-pink) !important;
+  color: var(--pop-white);
 }
 
 /* Camera & Squat HUD */
@@ -305,28 +286,18 @@ h1 {
 }
 
 .hud-status {
-  background: rgba(0,0,0,0.8);
-  border: 1px solid var(--volt);
-  color: var(--volt);
-  padding: 4px 10px;
+  background: var(--pop-yellow);
+  border: var(--border-thick);
+  color: var(--pop-black);
+  padding: 5px 15px;
   font-family: var(--font-display);
-  font-size: 0.8rem;
-  letter-spacing: 0.1em;
-  position: relative;
+  font-size: 1rem;
+  font-weight: 900;
+  box-shadow: 4px 4px 0px var(--pop-black);
+  transform: rotate(2deg);
 }
 
-/* Corner FX for HUD */
-.hud-status::before {
-  content: "";
-  position: absolute;
-  top: -2px;
-  left: -2px;
-  width: 6px;
-  height: 6px;
-  border: 1px solid var(--volt);
-  border-right: none;
-  border-bottom: none;
-}
+/* Corner FX - Removed for Pop style */
 
 .hud-center {
   flex: 1;
@@ -338,26 +309,30 @@ h1 {
 
 .exercise-name {
   font-family: var(--font-display);
-  font-size: 2rem;
-  color: var(--volt);
-  letter-spacing: 0.3em;
-  opacity: 0.6;
-  margin-bottom: -10px;
+  font-size: 2.5rem;
+  color: var(--pop-black);
+  -webkit-text-stroke: 1px var(--pop-white);
+  text-shadow: 4px 4px 0px var(--pop-black);
+  margin-bottom: -20px;
+  transform: rotate(-3deg);
+  z-index: 20;
 }
 
 .squat-counter {
   font-family: var(--font-display);
-  font-size: 15rem;
-  font-weight: 700;
+  font-size: 12rem;
+  font-weight: 900;
   line-height: 0.8;
-  color: var(--volt);
-  text-shadow: 0 0 40px rgba(204, 255, 0, 0.4);
+  color: var(--pop-yellow);
+  -webkit-text-stroke: 3px var(--pop-black);
+  text-shadow: 15px 15px 0px var(--pop-black);
   position: relative;
 }
 
 .squat-total {
-  font-size: 2rem;
-  color: var(--mid-grey);
+  font-size: 3rem;
+  color: var(--pop-pink);
+  -webkit-text-stroke: 1.5px var(--pop-black);
   margin-left: -10px;
 }
 
@@ -393,62 +368,76 @@ h1 {
 }
 
 .complete-ring {
-  width: 120px;
-  height: 120px;
-  border: 4px solid var(--volt);
-  border-radius: 50%;
+  width: 140px;
+  height: 140px;
+  border: var(--border-thick);
+  background: var(--pop-yellow);
   display: flex;
   justify-content: center;
   align-items: center;
   margin: 0 auto 30px;
-  box-shadow: 0 0 30px rgba(204, 255, 0, 0.2);
+  box-shadow: var(--shadow-hard);
+  transform: rotate(-5deg);
 }
 
 .check-mark {
-  color: var(--volt);
-  font-size: 4rem;
+  color: var(--pop-black);
+  font-size: 5rem;
   font-family: var(--font-display);
+  font-weight: 900;
 }
 
 .complete-title {
-  color: var(--volt) !important;
-  font-size: 4rem;
+  color: var(--pop-black) !important;
+  font-size: 5rem;
+  -webkit-text-stroke: 2px var(--pop-white);
+  text-shadow: 6px 6px 0px var(--pop-black);
   margin-bottom: 0;
+  transform: rotate(2deg);
 }
 
 .complete-subtitle {
-  color: var(--white) !important;
-  font-size: 1rem;
+  color: var(--pop-black) !important;
+  font-size: 1.2rem;
+  font-weight: 900;
   margin-bottom: 40px;
+  background: var(--pop-blue);
+  display: inline-block;
+  padding: 5px 15px;
+  border: 3px solid var(--pop-black);
+  transform: rotate(-1deg);
 }
 
 .stats-grid {
   display: grid;
-  grid-template-columns: 1fr 1px 1fr;
+  grid-template-columns: 1fr 1fr;
   gap: 20px;
   margin-bottom: 40px;
-  border-top: 1px solid var(--dark-grey);
-  border-bottom: 1px solid var(--dark-grey);
-  padding: 20px 0;
+  background: var(--pop-white);
+  border: var(--border-thick);
+  padding: 20px;
+  box-shadow: 8px 8px 0px var(--pop-black);
+  transform: rotate(1deg);
 }
 
 .stat-box .val {
   font-family: var(--font-display);
-  font-size: 3rem;
-  color: var(--volt);
+  font-size: 3.5rem;
+  color: var(--pop-black);
   line-height: 1;
+  font-weight: 900;
 }
 
 .stat-box .lbl {
-  font-family: var(--font-mono);
-  font-size: 0.7rem;
-  color: var(--mid-grey);
+  font-family: var(--font-display);
+  font-size: 1rem;
+  color: var(--pop-black);
   text-transform: uppercase;
+  font-weight: 900;
 }
 
 .divider {
-  background: var(--dark-grey);
-  width: 1px;
+  display: none;
 }
 
 /* QR Scanner */
@@ -653,7 +642,7 @@ h1 {
   z-index: 9999;
   padding: 5px;
   pointer-events: none;
-  display: block;
+  display: none;
 }
 
 /* ============================================ */

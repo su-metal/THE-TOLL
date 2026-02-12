@@ -248,14 +248,14 @@ console.log('[THE TOLL] Content script loaded: ' + window.location.href);
     overlay.innerHTML = `
       <div class="toll-container">
         <h1>THE TOLL</h1>
-        <p class="toll-subtitle">SELF-DISCIPLINE SYSTEM</p>
+        <p class="toll-subtitle">BROWSER LOCKDOWN</p>
         
         <div class="toll-instruction">
-          <p class="toll-instruction-text">Complete <strong>${targetCount}</strong> squats on your phone to unlock</p>
+          <p class="toll-instruction-text">WANT ACCESS? DO <strong>${targetCount}</strong> SQUATS.</p>
         </div>
         
         <div class="toll-qr-section">
-          <p class="toll-qr-label">SCAN WITH YOUR PHONE</p>
+          <p class="toll-qr-label">SCAN TO UNLOCK</p>
           <div class="toll-qr-container">
             <div id="toll-qrcode"></div>
           </div>
@@ -266,7 +266,7 @@ console.log('[THE TOLL] Content script loaded: ' + window.location.href);
           <p class="toll-session-id">${sessionId}</p>
         </div>
         
-        <p class="toll-status connecting">Connecting...</p>
+        <p class="toll-status connecting">CONNECTING...</p>
       </div>
     `;
     
