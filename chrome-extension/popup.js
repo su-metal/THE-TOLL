@@ -1,6 +1,7 @@
 document.addEventListener('DOMContentLoaded', async () => {
   const statusMsg = document.getElementById('status-msg');
   const unlockBtn = document.getElementById('unlock-settings-btn');
+  const upgradeBtn = document.getElementById('upgrade-btn');
   const lockOverlay = document.getElementById('lock-overlay');
   const settingsContent = document.getElementById('settings-content');
   const qrSection = document.getElementById('settings-qr-section');
@@ -53,8 +54,40 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
-  function openUpgrade(deviceId) {
+  function openAppLink(deviceId) {
     chrome.tabs.create({ url: `${SMARTPHONE_APP_URL}?device=${encodeURIComponent(deviceId)}` });
+  }
+
+  async function openCheckout(deviceId) {
+    const locale = (navigator.language || 'en').toLowerCase();
+    const currency = locale.startsWith('ja') ? 'jpy' : 'usd';
+    const plan = 'yearly';
+
+    try {
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/create-checkout-device`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          apikey: SUPABASE_ANON_KEY,
+          Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+        },
+        body: JSON.stringify({ device_id: deviceId, currency, plan }),
+      });
+
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok || !payload?.url) {
+        const detail = payload?.error || `HTTP ${res.status}`;
+        statusMsg.textContent = `CHECKOUT ERROR: ${detail}`;
+        showSavedStatus();
+        openAppLink(deviceId);
+        return;
+      }
+      chrome.tabs.create({ url: payload.url });
+    } catch (e) {
+      statusMsg.textContent = 'CHECKOUT FAILED. OPENING APP...';
+      showSavedStatus();
+      openAppLink(deviceId);
+    }
   }
 
   const deviceId = await getOrCreateDeviceId();
@@ -76,6 +109,21 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   statusMsg.textContent = isProUser ? 'PLAN: PRO/TRIAL' : 'PLAN: FREE (LINK DEVICE TO UPGRADE)';
+  if (upgradeBtn) {
+    if (isProUser) {
+      upgradeBtn.classList.add('hidden');
+    } else {
+      upgradeBtn.onclick = async () => {
+        if (entitlement.reason === 'not_linked') {
+          statusMsg.textContent = 'LINK ACCOUNT ON PHONE FIRST';
+          showSavedStatus();
+          openAppLink(deviceId);
+          return;
+        }
+        await openCheckout(deviceId);
+      };
+    }
+  }
   if (!isProUser && unlockBtn) {
     unlockBtn.disabled = true;
     unlockBtn.textContent = 'PRO ONLY';
@@ -98,7 +146,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       await chrome.storage.local.set({ adult_block_enabled: false });
       statusMsg.textContent = 'PRO FEATURE: ADULT BLOCK';
       showSavedStatus();
-      openUpgrade(deviceId);
+      openCheckout(deviceId);
       return;
     }
     await chrome.storage.local.set({ adult_block_enabled: e.target.checked });
@@ -122,7 +170,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         radioButtons.forEach(r => { r.checked = parseInt(r.value) === 5; });
         statusMsg.textContent = 'PRO FEATURE: CUSTOM GRACE PERIOD';
         showSavedStatus();
-        openUpgrade(deviceId);
+        openCheckout(deviceId);
         return;
       }
       await chrome.storage.local.set({ lock_duration_min: parseInt(e.target.value) });
@@ -172,7 +220,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       });
       statusMsg.textContent = 'PRO FEATURE: LOCK SCHEDULE';
       showSavedStatus();
-      openUpgrade(deviceId);
+      openCheckout(deviceId);
       return;
     }
     const activeDays = Array.from(dayChecks).filter(c => c.checked).map(c => parseInt(c.dataset.day));
@@ -203,7 +251,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       await chrome.storage.local.set({ target_squat_count: 10 });
       statusMsg.textContent = 'PRO FEATURE: CUSTOM REP COUNT';
       showSavedStatus();
-      openUpgrade(deviceId);
+      openCheckout(deviceId);
       return;
     }
     let val = parseInt(e.target.value);
@@ -256,7 +304,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (!isProUser) {
           statusMsg.textContent = 'PRO FEATURE: CUSTOM DOMAINS';
           showSavedStatus();
-          openUpgrade(deviceId);
+          openCheckout(deviceId);
           return;
         }
         const idx = parseInt(e.target.dataset.index);
@@ -272,7 +320,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (!isProUser) {
       statusMsg.textContent = 'PRO FEATURE: CUSTOM DOMAINS';
       showSavedStatus();
-      openUpgrade(deviceId);
+      openCheckout(deviceId);
       return;
     }
     const domain = customInput.value.trim().toLowerCase();
@@ -297,7 +345,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (e?.target) e.target.checked = false;
       statusMsg.textContent = 'FREE LIMIT: UP TO 3 SITES';
       showSavedStatus();
-      openUpgrade(deviceId);
+      openCheckout(deviceId);
       return;
     }
     await chrome.storage.local.set({ blocked_sites: activeSites });
