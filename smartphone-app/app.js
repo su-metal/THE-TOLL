@@ -10,6 +10,52 @@
   const APP_VERSION = 'v2.17 (Rescue Update)';
   const SUPABASE_URL = 'https://qcnzleiyekbgsiyomwin.supabase.co';
   const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFjbnpsZWl5ZWtiZ3NpeW9td2luIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg0Mjk2NzMsImV4cCI6MjA4NDAwNTY3M30.NlGUfxDPzMgtu_J0vX7FMe-ikxafboGh5GMr-tsaLfI';
+  const APP_LANG = new URLSearchParams(window.location.search).get('lang') === 'ja' ? 'ja' : 'en';
+  const I18N = {
+    en: {
+      logged_in_as: 'Logged in:',
+      membership_checking: 'Checking membership...',
+      membership_check_failed: 'Membership check failed',
+      go_to_session: 'Go to PC Session',
+      subscription_required: 'Paid plan required',
+      google_login_failed: 'Google login failed: ',
+      google_login_network_error: 'Google login failed due to network error.',
+      checkout_url_failed: 'Failed to get checkout URL.',
+      checkout_prepare_failed: 'Failed to prepare checkout.',
+      enter_session_id: 'Please enter a session ID.',
+      scanner_init_failed: 'Scanner init failed.',
+      camera_start_failed: 'Camera start failed.',
+      sending: 'Sending...',
+      session_expired: 'Session expired. Please log in again.',
+      send_failed: 'Send failed',
+      unlock_success: 'Unlocked successfully!',
+      session_not_found: 'Session not found',
+      ai_loading: 'Loading AI...',
+      confirm_cancel_training: 'Stop this training session?'
+    },
+    ja: {
+      logged_in_as: 'ログイン中:',
+      membership_checking: '会員確認中...',
+      membership_check_failed: '会員確認に失敗しました',
+      go_to_session: 'PC連携へ進む',
+      subscription_required: 'サブスク登録が必要です',
+      google_login_failed: 'Googleログイン失敗: ',
+      google_login_network_error: 'Googleログインに失敗しました。ネットワークを確認してください。',
+      checkout_url_failed: '決済URLの取得に失敗しました。',
+      checkout_prepare_failed: '決済の準備に失敗しました。',
+      enter_session_id: 'セッションIDを入力してください',
+      scanner_init_failed: 'スキャナー初期化失敗',
+      camera_start_failed: 'カメラ起動失敗',
+      sending: '送信中...',
+      session_expired: 'ログインセッションが切れています',
+      send_failed: '送信失敗',
+      unlock_success: 'アンロック成功！',
+      session_not_found: 'セッションなし',
+      ai_loading: 'AI読み込み中...',
+      confirm_cancel_training: 'トレーニングを中断しますか？'
+    }
+  };
+  const t = (key) => (I18N[APP_LANG] && I18N[APP_LANG][key]) || I18N.en[key] || key;
 
   // ============================================
   // 状態管理
@@ -34,7 +80,8 @@
     calibrationBuffer: [], // NEW: 安定判定用のバッファ
     _lastPersonTs: null,
     _lastPushLog: null,
-    _squatReadySpoken: false
+    _squatReadySpoken: false,
+    _membershipCheckInFlight: false
   };
  
   const EXERCISES = [
@@ -50,10 +97,7 @@
     authScreen: document.getElementById('auth-screen'),
     authForm: document.getElementById('auth-form'),
     userInfo: document.getElementById('user-info'),
-    emailInput: document.getElementById('email-input'),
-    passwordInput: document.getElementById('password-input'),
-    loginBtn: document.getElementById('login-btn'),
-    signupBtn: document.getElementById('signup-btn'),
+    googleLoginBtn: document.getElementById('google-login-btn'),
     userDisplayEmail: document.getElementById('user-display-email'),
     subscriptionStatusBadge: document.getElementById('subscription-status-badge'),
     installBtn: document.getElementById('install-btn'),
@@ -123,86 +167,136 @@
   // ============================================
   async function updateUserInfo(user) {
     debugLog(`Updating info for: ${user.email}`);
-    elements.userDisplayEmail.textContent = `ログイン中: ${user.email}`;
+    elements.userDisplayEmail.textContent = `${t('logged_in_as')} ${user.email}`;
     elements.authForm.classList.add('hidden');
     elements.userInfo.classList.remove('hidden');
-    
-    try {
-      const { data: profile, error } = await state.supabase
-        .from('profiles')
-        .select('subscription_status')
-        .eq('id', user.id)
-        .single();
-        
-      if (error) debugLog('Profile fetch error: ' + error.message);
 
-      const status = profile?.subscription_status || 'inactive';
-      state.subscriptionStatus = status;
-      
-      elements.subscriptionStatusBadge.textContent = `会員ステータス: ${status === 'active' ? '✅ 有料会員' : '❌ 未登録'}`;
-      elements.subscriptionStatusBadge.className = status === 'active' ? 'status-active' : 'status-inactive';
-      
-      if (status === 'active') {
+    if (state._membershipCheckInFlight) return;
+    state._membershipCheckInFlight = true;
+
+    // Strict gate: lock session entry until membership is confirmed.
+    elements.toSessionBtn.disabled = true;
+    elements.toSessionBtn.textContent = t('membership_checking');
+    elements.subscribeBtn.classList.add('hidden');
+    elements.subscriptionStatusBadge.textContent = 'MEMBERSHIP: CHECKING';
+    elements.subscriptionStatusBadge.className = 'status-inactive';
+
+    try {
+      await state.supabase.auth.getSession();
+
+      let profile = null;
+      let lastError = null;
+      for (let i = 0; i < 8; i++) {
+        const { data, error } = await state.supabase
+          .from('profiles')
+          .select('subscription_status')
+          .eq('id', user.id)
+          .single();
+        profile = data || null;
+        lastError = error || null;
+        if (profile) break;
+        await new Promise(r => setTimeout(r, 400));
+      }
+
+      if (!profile) {
+        debugLog('Profile missing or unreadable: ' + (lastError?.message || 'no row'));
+        elements.subscriptionStatusBadge.textContent = 'MEMBERSHIP: VERIFY FAILED';
+        elements.subscriptionStatusBadge.className = 'status-inactive';
+        elements.toSessionBtn.disabled = true;
+        elements.toSessionBtn.textContent = t('membership_check_failed');
+        elements.subscribeBtn.classList.remove('hidden');
+        return;
+      }
+
+      const rawStatus = (profile.subscription_status || 'inactive').toString();
+      const normalizedStatus = rawStatus.trim().toLowerCase();
+      const isActive = normalizedStatus === 'active';
+      state.subscriptionStatus = normalizedStatus;
+
+      elements.subscriptionStatusBadge.textContent = `MEMBERSHIP: ${isActive ? 'ACTIVE' : 'INACTIVE'}`;
+      elements.subscriptionStatusBadge.className = isActive ? 'status-active' : 'status-inactive';
+
+      if (isActive) {
         elements.subscribeBtn.classList.add('hidden');
         elements.toSessionBtn.disabled = false;
-        elements.toSessionBtn.textContent = 'PC連携へ進む';
+        elements.toSessionBtn.textContent = t('go_to_session');
         if (elements.authScreen.classList.contains('active')) {
           setTimeout(() => showScreen('session-screen'), 500);
         }
       } else {
         elements.subscribeBtn.classList.remove('hidden');
         elements.toSessionBtn.disabled = true;
-        elements.toSessionBtn.textContent = 'サブスク登録が必要です';
+        elements.toSessionBtn.textContent = t('subscription_required');
       }
     } catch (e) {
-      debugLog('Profile logic crash: ' + e.message);
+      const msg = (e && e.message) ? e.message : String(e);
+      debugLog('Profile logic crash: ' + msg);
+      elements.subscriptionStatusBadge.textContent = `MEMBERSHIP: ERROR (${msg.slice(0, 18)})`;
+      elements.subscriptionStatusBadge.className = 'status-inactive';
+      elements.toSessionBtn.disabled = true;
+      elements.toSessionBtn.textContent = t('membership_check_failed');
+      elements.subscribeBtn.classList.remove('hidden');
+    } finally {
+      state._membershipCheckInFlight = false;
     }
   }
 
-  async function handleLogin() {
-    const email = elements.emailInput.value;
-    const password = elements.passwordInput.value;
-    if (!email || !password) return alert('メールとパスワードを入力してください');
+  async function handleGoogleLogin() {
     try {
-      const { error } = await state.supabase.auth.signInWithPassword({ email, password });
-      if (error) alert('ログイン失敗: ' + error.message);
+      const redirectTo = `${window.location.origin}${window.location.pathname}${window.location.search}`;
+      const { error } = await state.supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: { redirectTo }
+      });
+      if (error) alert(t('google_login_failed') + error.message);
     } catch (e) {
-      alert('ログイン失敗: ネットワークエラーです。Supabase接続またはCORS設定を確認してください。');
-      debugLog('Login network error: ' + (e?.message || e));
+      alert(t('google_login_network_error'));
+      debugLog('Google login network error: ' + (e?.message || e));
     }
-  }
-
-  async function handleSignup() {
-    const email = elements.emailInput.value;
-    const password = elements.passwordInput.value;
-    if (!email || !password) return alert('メールとパスワードを入力してください');
-    const { error, data } = await state.supabase.auth.signUp({ 
-      email, password, options: { emailRedirectTo: window.location.origin }
-    });
-    if (error) alert('登録失敗: ' + error.message);
-    else if (data.session) alert('アカウントを作成しました。自動ログインします。');
-    else alert('確認メールを送信しました。');
   }
 
   async function handleLogout() { await state.supabase.auth.signOut(); }
 
   async function handleSubscribe() {
     try {
-      const { data, error } = await state.supabase.functions.invoke('create-checkout', {
-        headers: { 'Content-Type': 'application/json' },
-        body: {}
+      const { data: sessionData } = await state.supabase.auth.getSession();
+      const accessToken = sessionData?.session?.access_token;
+      if (!accessToken) {
+        alert('Please log in again before starting checkout.');
+        return;
+      }
+
+      const plan = 'yearly';
+      const locale = (navigator.language || 'en').toLowerCase();
+      const currency = locale.startsWith('ja') ? 'jpy' : 'usd';
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/create-checkout`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${accessToken}`,
+          'apikey': SUPABASE_ANON_KEY
+        },
+        body: JSON.stringify({ plan, currency })
       });
-      if (data?.url) window.location.href = data.url;
-      else alert('決済URLの取得に失敗しました。');
-    } catch (e) { alert('決済の準備に失敗しました。'); }
+
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const detail = payload?.error || `HTTP ${res.status}`;
+        alert(`${t('checkout_url_failed')} ${detail}`);
+        return;
+      }
+
+      if (payload?.url) window.location.href = payload.url;
+      else alert(t('checkout_url_failed'));
+    } catch (e) { alert(t('checkout_prepare_failed')); }
   }
 
   // ============================================
   // セッション・QR
   // ============================================
   function startSession(sid, targetFromUrl) {
-    const sessionId = sid || elements.sessionInput.value.trim().toUpperCase();
-    if (!sessionId || sessionId.length < 4) return alert('セッションIDを入力してください');
+    const sessionId = (sid || elements.sessionInput.value).trim().toUpperCase();
+    if (!sessionId || sessionId.length < 4) return alert(t('enter_session_id'));
     
     state.sessionId = sessionId;
     state.squatCount = 0;
@@ -243,7 +337,7 @@
   }
 
   async function startQRScan() {
-    if (!state.html5QrCode) return alert("スキャナー初期化失敗");
+    if (!state.html5QrCode) return alert(t('scanner_init_failed'));
     elements.qrReaderContainer.classList.remove('hidden');
     try {
       await state.html5QrCode.start(
@@ -276,7 +370,7 @@
           startSession(sid, target);
         }, () => {}
       );
-    } catch (err) { alert("カメラ起動失敗"); elements.qrReaderContainer.classList.add('hidden'); }
+    } catch (err) { alert(t('camera_start_failed')); elements.qrReaderContainer.classList.add('hidden'); }
   }
 
   async function stopQRScan() {
@@ -294,24 +388,40 @@
 
   async function sendUnlockSignal() {
     elements.unlockBtn.disabled = true;
-    elements.unlockStatus.textContent = '送信中...';
+    elements.unlockStatus.textContent = t('sending');
     try {
-      const { data, error } = await state.supabase.rpc('unlock_session', { session_id: state.sessionId });
+      const { data: sessionData } = await state.supabase.auth.getSession();
+      if (!sessionData?.session) {
+        elements.unlockStatus.textContent = `❌ ${t('session_expired')}`;
+        elements.unlockBtn.disabled = false;
+        return;
+      }
+
+      const sid = (state.sessionId || '').trim().toUpperCase();
+      const { data, error } = await state.supabase.rpc('unlock_session', { session_id: sid });
+      if (error) {
+        elements.unlockStatus.textContent = `❌ ${t('send_failed')}: ${error.message}`;
+        elements.unlockBtn.disabled = false;
+        return;
+      }
       if (data && data.success) {
-        elements.unlockStatus.textContent = '✅ アンロック成功！';
+        elements.unlockStatus.textContent = `✅ ${t('unlock_success')}`;
         elements.unlockBtn.innerHTML = '<span>SUCCESS</span>';
       } else {
-        elements.unlockStatus.textContent = '⚠️ セッションなし';
+        elements.unlockStatus.textContent = `⚠️ ${t('session_not_found')} (${sid})`;
         elements.unlockBtn.disabled = false;
       }
-    } catch (e) { elements.unlockStatus.textContent = '❌ 送信失敗'; elements.unlockBtn.disabled = false; }
+    } catch (e) {
+      elements.unlockStatus.textContent = `❌ ${t('send_failed')}`;
+      elements.unlockBtn.disabled = false;
+    }
   }
 
   // ============================================
   // スクワット検出 (MediaPipe)
   // ============================================
   async function initMediaPipe() {
-    updateStatus('AI読み込み中...');
+    updateStatus(t('ai_loading'));
     const pose = new Pose({ locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}` });
     pose.setOptions({ modelComplexity: 0, smoothLandmarks: true, minDetectionConfidence: 0.5, minTrackingConfidence: 0.5 });
     pose.onResults(onPoseResults);
@@ -762,8 +872,7 @@
     try { state.html5QrCode = new Html5Qrcode("qr-reader"); } catch(e) {}
 
     // イベントリスナー
-    elements.loginBtn.onclick = handleLogin;
-    elements.signupBtn.onclick = handleSignup;
+    elements.googleLoginBtn.onclick = handleGoogleLogin;
     elements.logoutBtn.onclick = handleLogout;
     elements.subscribeBtn.onclick = handleSubscribe;
     elements.toSessionBtn.onclick = () => showScreen('session-screen');
@@ -818,7 +927,7 @@
     const exitBtn = document.getElementById('exit-btn');
     if (exitBtn) {
       exitBtn.onclick = () => {
-        if(!confirm('トレーニングを中断しますか？')) return;
+        if(!confirm(t('confirm_cancel_training'))) return;
         cancelSession();
       };
     }

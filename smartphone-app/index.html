@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="ja">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-  <title>THE TOLL - スクワットチャレンジ</title>
+  <title>THE TOLL - Workout Challenge</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;700&family=Roboto+Mono:wght@400;700&display=swap" rel="stylesheet">
@@ -45,17 +45,10 @@
         <p class="subtitle">LET'S DO OUR BEST!</p>
         
         <div id="auth-form">
-          <div class="input-group">
-            <label for="email-input">EMAIL</label>
-            <input type="email" id="email-input" placeholder="user@example.com">
-          </div>
-          <div class="input-group">
-            <label for="password-input">PASSWORD</label>
-            <input type="password" id="password-input" placeholder="••••••••">
-          </div>
+          <p id="auth-guide-1" style="font-size:0.72rem; margin: 2px 0; opacity:0.85;">Use Google to create or sign in.</p>
+          <p id="auth-guide-2" style="font-size:0.72rem; margin: 2px 0 14px; opacity:0.85;">Paid plan is required to start sessions.</p>
           <div class="auth-buttons">
-            <button id="login-btn" class="btn primary">LOGIN</button>
-            <button id="signup-btn" class="btn secondary">REGISTER</button>
+            <button id="google-login-btn" class="btn primary">CONTINUE WITH GOOGLE</button>
           </div>
         </div>
         
@@ -100,7 +93,7 @@
           </button>
         </div>
         
-        <p class="subtitle" style="margin-top: 20px;">PCに表示されたIDを入れてね</p>
+        <p class="subtitle" id="session-help-text" style="margin-top: 20px;">Enter the ID shown on your PC</p>
         
         <a href="#" id="session-logout-btn" class="text-btn">Logout from this account</a>
         <a href="#" onclick="forceReset(); return false;" class="text-btn" style="display:block; margin-top:10px; opacity: 0.5;">System Hard Reset (v2.16)</a>
@@ -192,11 +185,25 @@
     <div id="debug-console"></div>
   </div>
 
-  <script src="app.js?v=2.18"></script>
+  <script src="app.js?v=2.28"></script>
   <script>
+    const appLang = new URLSearchParams(window.location.search).get('lang') === 'ja' ? 'ja' : 'en';
+    if (appLang === 'ja') {
+      document.documentElement.lang = 'ja';
+      document.title = 'THE TOLL - スクワットチャレンジ';
+      const sessionHelp = document.getElementById('session-help-text');
+      if (sessionHelp) sessionHelp.textContent = 'PCに表示されたIDを入れてね';
+      const authGuide1 = document.getElementById('auth-guide-1');
+      const authGuide2 = document.getElementById('auth-guide-2');
+      const googleLoginBtn = document.getElementById('google-login-btn');
+      if (authGuide1) authGuide1.textContent = 'Googleアカウントで登録・ログインします。';
+      if (authGuide2) authGuide2.textContent = 'セッション開始には有料プランが必要です。';
+      if (googleLoginBtn) googleLoginBtn.textContent = 'Googleで続行';
+    }
+
     // 強制リセット関数
     async function forceReset() {
-      if(!confirm('アプリを初期化して再読み込みしますか？')) return;
+      if(!confirm(appLang === 'ja' ? 'アプリを初期化して再読み込みしますか？' : 'Reset app data and reload?')) return;
       
       if ('serviceWorker' in navigator) {
         const registrations = await navigator.serviceWorker.getRegistrations();

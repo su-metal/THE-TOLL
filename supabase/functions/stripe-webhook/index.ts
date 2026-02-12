@@ -3,7 +3,7 @@ import Stripe from "stripe";
 import { createClient } from "supabase";
 
 const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY") || "", {
-  apiVersion: "2022-11-15",
+  apiVersion: "2024-06-20",
   httpClient: Stripe.createFetchHttpClient(),
 });
 
@@ -17,10 +17,12 @@ serve(async (req: Request) => {
 
   try {
     const body = await req.text();
-    const event = stripe.webhooks.constructEvent(
+    const event = await stripe.webhooks.constructEventAsync(
       body,
       signature || "",
-      Deno.env.get("STRIPE_WEBHOOK_SECRET") || ""
+      Deno.env.get("STRIPE_WEBHOOK_SECRET") || "",
+      undefined,
+      Stripe.createSubtleCryptoProvider()
     );
 
     console.log(`[THE TOLL] Webhook受信: ${event.type}`);
