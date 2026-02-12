@@ -1,20 +1,20 @@
 <!DOCTYPE html>
-<html lang="ja">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-  <title>THE TOLL - スクワットチャレンジ</title>
+  <title>THE TOLL - Workout Challenge</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;700&family=Roboto+Mono:wght@400;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="style.css?v=2.18">
   <!-- MediaPipe Pose -->
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js" crossorigin="anonymous"></script>
   <!-- PWA -->
   <link rel="manifest" href="manifest.json">
-  <meta name="theme-color" content="#CCFF00">
+  <meta name="theme-color" content="#000000">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="THE TOLL">
@@ -42,33 +42,30 @@
     <div id="auth-screen" class="screen active">
       <div class="container">
         <h1>THE TOLL</h1>
-        <p class="subtitle">Self Control System</p>
+        <p class="subtitle">LET'S DO OUR BEST!</p>
         
         <div id="auth-form">
-          <div class="input-group">
-            <label for="email-input">EMAIL</label>
-            <input type="email" id="email-input" placeholder="user@example.com">
-          </div>
-          <div class="input-group">
-            <label for="password-input">PASSWORD</label>
-            <input type="password" id="password-input" placeholder="••••••••">
-          </div>
+          <p id="auth-guide-1" style="font-size:0.72rem; margin: 2px 0; opacity:0.85;">Use Google to create or sign in.</p>
+          <p id="auth-guide-2" style="font-size:0.72rem; margin: 2px 0 14px; opacity:0.85;">Paid plan is required to start sessions.</p>
           <div class="auth-buttons">
-            <button id="login-btn" class="btn primary">LOGIN</button>
-            <button id="signup-btn" class="btn secondary">REGISTER</button>
+            <button id="google-login-btn" class="btn primary">CONTINUE WITH GOOGLE</button>
           </div>
         </div>
         
         <div id="user-info" class="hidden">
           <p id="user-display-email" class="session-id-display"></p>
           <div id="subscription-status-badge"></div>
+          <div id="trial-badge" class="hidden" style="margin-top:8px; font-size:0.75rem; opacity:0.85;"></div>
           
           <button id="install-btn" class="btn secondary hidden">INSTALL APP</button>
           <button id="subscribe-btn" class="btn primary">SUBSCRIBE ($49/YEAR)</button>
+          <button id="manage-subscription-btn" class="btn secondary hidden">MANAGE SUBSCRIPTION</button>
           
           <button id="to-session-btn" class="btn secondary">ENTER SESSION</button>
           <button id="logout-btn" class="text-btn">LOGOUT</button>
         </div>
+        
+        <a href="#" onclick="forceReset(); return false;" class="text-btn" style="display:block; margin-top: 30px; opacity: 0.5;">System Hard Reset (v2.18)</a>
       </div>
     </div>
 
@@ -76,7 +73,7 @@
     <div id="session-screen" class="screen">
       <div class="container">
         <h1>THE TOLL</h1>
-        <p class="subtitle">Unlock Your Device</p>
+        <p class="subtitle">WANT TO BROWSE?</p>
         
         <div class="input-group">
           <label for="session-input">SESSION ID</label>
@@ -87,16 +84,21 @@
           <button id="start-btn" class="btn primary">
             START CHALLENGE
           </button>
+          <p id="next-exercise-display" class="subtitle" style="margin-top: -10px; font-size: 0.6rem; color: var(--volt);">NEXT: (LOADING...)</p>
+          <div style="font-size: 0.5rem; opacity: 0.5; margin-bottom: 20px;">
+            <a href="#" id="reset-cycle-btn" style="color: var(--volt); text-decoration: none;">[CHANGE EXERCISE]</a>
+            <span id="cycle-debug-info" style="margin-left: 10px;">ID: -</span>
+          </div>
           
           <button id="scan-qr-btn" class="btn secondary">
             SCAN QR CODE
           </button>
         </div>
         
-        <p class="subtitle" style="margin-top: 20px;">Enter the ID displayed on your PC</p>
+        <p class="subtitle" id="session-help-text" style="margin-top: 20px;">Enter the ID shown on your PC</p>
         
         <a href="#" id="session-logout-btn" class="text-btn">Logout from this account</a>
-        <a href="#" onclick="forceReset(); return false;" class="text-btn" style="display:block; margin-top:10px; opacity: 0.5;">System Reset (v2.11)</a>
+        <a href="#" onclick="forceReset(); return false;" class="text-btn" style="display:block; margin-top:10px; opacity: 0.5;">System Hard Reset (v2.16)</a>
       </div>
 
       <!-- QRスキャナーオーバーレイ -->
@@ -115,22 +117,32 @@
         <div class="overlay-ui">
           <div class="hud-top">
             <div class="session-id-display">SESSION: <span id="current-session">-</span></div>
-            <div class="hud-status" id="status">READY</div>
+            <div class="hud-top-right">
+              <button id="fullscreen-btn" class="hud-mini-btn">FULLSCREEN</button>
+              <div class="hud-status" id="status">READY</div>
+            </div>
           </div>
 
           <div class="hud-center">
+             <div class="exercise-name" id="exercise-label">SQUAT</div>
              <div class="squat-counter"><span id="squat-count">0</span><span class="squat-total">/<span id="target-count-display">20</span></span></div>
           </div>
           
           
           <div class="hud-bottom">
-            <div class="squat-guide" id="squat-hint">SQUAT DEEP</div>
+            <div class="hud-bottom-flex">
+              <div class="squat-guide" id="squat-hint">LOWER YOUR BODY</div>
+              <div style="display: flex; gap: 10px;">
+                <button id="recalibrate-btn" class="hud-btn">RESET CAPTURE</button>
+                <button id="exit-btn" class="hud-btn">EXIT</button>
+              </div>
+            </div>
           </div>
         </div>
         
         <div class="guide-overlay" id="guide">
           <div class="squat-guide">
-            STAND BACK<br>SHOW FULL BODY
+            STAND BACK<br>SHOW US YOUR BODY!
           </div>
         </div>
       </div>
@@ -143,8 +155,8 @@
           <div class="check-mark">✓</div>
         </div>
         
-        <h1 class="complete-title">COMPLETE</h1>
-        <p class="complete-subtitle">TARGET ACHIEVED</p>
+        <h1 class="complete-title">DONE!</h1>
+        <p class="complete-subtitle">YOU'RE FREE TO GO (FOR NOW)</p>
         
         <div class="stats-grid">
           <div class="stat-box">
@@ -166,20 +178,36 @@
         
         <a href="#" id="back-to-session-btn" class="text-btn" style="display:block; margin-bottom: 20px;">START ANOTHER SESSION</a>
         
-        <a href="#" onclick="forceReset(); return false;" class="text-btn" style="opacity: 0.5;">System Reset (v2.11)</a>
+        <a href="#" onclick="forceReset(); return false;" class="text-btn" style="opacity: 0.5;">System Hard Reset (v2.16)</a>
       </div>
     </div>
         
     
     <!-- デバッグコンソール -->
-    <div id="debug-console" style="position:fixed; bottom:0; left:0; width:100%; height:150px; background:rgba(0,0,0,0.8); color:#0f0; font-size:10px; overflow-y:scroll; z-index:9999; padding:5px; pointer-events:none; display:none;"></div>
+    <div id="debug-console"></div>
   </div>
 
-  <script src="app.js"></script>
+  <script src="app.js?v=2.29"></script>
   <script>
+    const appLang = new URLSearchParams(window.location.search).get('lang') === 'ja' ? 'ja' : 'en';
+    if (appLang === 'ja') {
+      document.documentElement.lang = 'ja';
+      document.title = 'THE TOLL - スクワットチャレンジ';
+      const sessionHelp = document.getElementById('session-help-text');
+      if (sessionHelp) sessionHelp.textContent = 'PCに表示されたIDを入れてね';
+      const authGuide1 = document.getElementById('auth-guide-1');
+      const authGuide2 = document.getElementById('auth-guide-2');
+      const googleLoginBtn = document.getElementById('google-login-btn');
+      const manageSubscriptionBtn = document.getElementById('manage-subscription-btn');
+      if (authGuide1) authGuide1.textContent = 'Googleアカウントで登録・ログインします。';
+      if (authGuide2) authGuide2.textContent = 'セッション開始には有料プランが必要です。';
+      if (googleLoginBtn) googleLoginBtn.textContent = 'Googleで続行';
+      if (manageSubscriptionBtn) manageSubscriptionBtn.textContent = 'サブスク管理';
+    }
+
     // 強制リセット関数
     async function forceReset() {
-      if(!confirm('アプリを初期化して再読み込みしますか？')) return;
+      if(!confirm(appLang === 'ja' ? 'アプリを初期化して再読み込みしますか？' : 'Reset app data and reload?')) return;
       
       if ('serviceWorker' in navigator) {
         const registrations = await navigator.serviceWorker.getRegistrations();
@@ -193,6 +221,7 @@
         await Promise.all(keys.map(key => caches.delete(key)));
       }
       
+      localStorage.clear();
       window.location.reload(true);
     }
   </script>

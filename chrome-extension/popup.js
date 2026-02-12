@@ -6,7 +6,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const qrSection = document.getElementById('settings-qr-section');
   
   // スマホアプリのURL
-  const SMARTPHONE_APP_URL = 'https://nikita-unmajestic-reciprocatively.ngrok-free.dev';
+  const SMARTPHONE_APP_URL = 'https://smartphone-app-pi.vercel.app/';
   const SUPABASE_URL = 'https://qcnzleiyekbgsiyomwin.supabase.co';
   const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFjbnpsZWl5ZWtiZ3NpeW9td2luIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg0Mjk2NzMsImV4cCI6MjA4NDAwNTY3M30.NlGUfxDPzMgtu_J0vX7FMe-ikxafboGh5GMr-tsaLfI';
 
@@ -213,5 +213,16 @@ document.addEventListener('DOMContentLoaded', async () => {
   function unlockSettings() {
     lockOverlay.classList.add('hidden');
     settingsContent.classList.remove('locked');
+  }
+
+  // FORCE RELOCK (FOR TESTING)
+  const relockBtn = document.getElementById('force-relock-btn');
+  if (relockBtn) {
+    relockBtn.addEventListener('click', async () => {
+      await chrome.storage.local.remove('last_unlock_time');
+      statusMsg.textContent = 'LOCK RESET - RELOAD TAB TO TEST';
+      showSavedStatus();
+      setTimeout(() => { statusMsg.textContent = 'SETTINGS SAVED'; }, 2100);
+    });
   }
 });

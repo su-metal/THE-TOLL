@@ -1,4 +1,4 @@
-const CACHE_NAME = 'the-toll-v11-nav-fix';
+const CACHE_NAME = 'the-toll-v12-safe-network';
 const ASSETS = [
   './',
   './index.html',
@@ -38,6 +38,17 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
+  const url = new URL(event.request.url);
+
+  // Never intercept cross-origin requests (Supabase/CDN/etc).
+  if (url.origin !== self.location.origin) return;
+
+  // Never cache non-GET requests (auth/sign-in/rpc/etc).
+  if (event.request.method !== 'GET') {
+    event.respondWith(fetch(event.request));
+    return;
+  }
+
   // キャッシュ優先だが、HTMLは常にネットワークを確認（更新検知のため）
   if (event.request.url.includes('index.html') || event.request.url.endsWith('/')) {
     event.respondWith(
