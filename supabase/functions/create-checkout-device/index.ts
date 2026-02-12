@@ -9,7 +9,7 @@ const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY") || "", {
 
 const supabase = createClient(
   Deno.env.get("SUPABASE_URL") || "",
-  Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || ""
+  Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "",
 );
 
 const corsHeaders = {
@@ -24,8 +24,11 @@ serve(async (req: Request) => {
 
   try {
     const body = await req.json().catch(() => ({} as Record<string, unknown>));
+    const deviceId = typeof body.device_id === "string" ? body.device_id.trim() : "";
     const planRaw = typeof body.plan === "string" ? body.plan.toLowerCase() : "yearly";
     const currencyRaw = typeof body.currency === "string" ? body.currency.toLowerCase() : "usd";
+
+    if (!deviceId) throw new Error("Missing device_id");
 
     const plan = planRaw === "monthly" ? "monthly" : "yearly";
     const currency = currencyRaw === "jpy" ? "jpy" : "usd";
@@ -33,58 +36,61 @@ serve(async (req: Request) => {
     const priceId = Deno.env.get(envKey);
     if (!priceId) throw new Error(`Missing secret: ${envKey}`);
 
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader) throw new Error("No authorization header");
+    const { data: linkRow, error: linkError } = await supabase
+      .from("device_links")
+      .select("user_id")
+      .eq("device_id", deviceId)
+      .single();
+    if (linkError || !linkRow?.user_id) {
+      throw new Error("Device is not linked to an account");
+    }
 
-    const token = authHeader.replace("Bearer ", "");
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-    if (authError || !user) throw new Error("Invalid token");
+    const userId = linkRow.user_id;
 
-    const userEmail = user.email;
-
-    // Get or create Stripe customer
-    const { data: profile } = await supabase
+    const { data: profile, error: profileError } = await supabase
       .from("profiles")
       .select("stripe_customer_id")
-      .eq("id", user.id)
+      .eq("id", userId)
       .single();
+    if (profileError) {
+      throw new Error(`Profile fetch failed: ${profileError.message}`);
+    }
 
-    let customerId = profile?.stripe_customer_id;
+    let customerId = profile?.stripe_customer_id || null;
 
     if (!customerId) {
+      const { data: userData, error: userError } = await supabase.auth.admin.getUserById(userId);
+      if (userError || !userData?.user?.email) {
+        throw new Error("Failed to resolve account email");
+      }
       const customer = await stripe.customers.create({
-        email: userEmail,
-        metadata: { supabase_user_id: user.id },
+        email: userData.user.email,
+        metadata: { supabase_user_id: userId, device_id: deviceId },
       });
       customerId = customer.id;
+
       await supabase
         .from("profiles")
         .update({ stripe_customer_id: customerId })
-        .eq("id", user.id);
+        .eq("id", userId);
     }
 
-    const origin = req.headers.get("origin") || "";
-    const appUrl = /^https?:\/\//.test(origin)
-      ? origin
-      : (Deno.env.get("PUBLIC_APP_URL") || "https://smartphone-app-pi.vercel.app");
+    const appUrl = Deno.env.get("PUBLIC_APP_URL") || "https://smartphone-app-pi.vercel.app";
+    const successUrl = `${appUrl}/?checkout=success&device=${encodeURIComponent(deviceId)}`;
+    const cancelUrl = `${appUrl}/?checkout=cancel&device=${encodeURIComponent(deviceId)}`;
 
-    // Create checkout session
     const session = await stripe.checkout.sessions.create({
       customer: customerId,
-      line_items: [
-        {
-          price: priceId,
-          quantity: 1,
-        },
-      ],
+      line_items: [{ price: priceId, quantity: 1 }],
       mode: "subscription",
       metadata: {
         plan,
         currency,
-        supabase_user_id: user.id,
+        supabase_user_id: userId,
+        device_id: deviceId,
       },
-      success_url: `${appUrl}/?checkout=success`,
-      cancel_url: `${appUrl}/?checkout=cancel`,
+      success_url: successUrl,
+      cancel_url: cancelUrl,
     });
 
     return new Response(JSON.stringify({ url: session.url }), {

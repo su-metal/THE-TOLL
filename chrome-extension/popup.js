@@ -1,6 +1,10 @@
 document.addEventListener('DOMContentLoaded', async () => {
   const statusMsg = document.getElementById('status-msg');
   const unlockBtn = document.getElementById('unlock-settings-btn');
+  const upgradeBtn = document.getElementById('upgrade-btn');
+  const authLoginBtn = document.getElementById('auth-login-btn');
+  const authLogoutBtn = document.getElementById('auth-logout-btn');
+  const authUserLabel = document.getElementById('auth-user-label');
   const lockOverlay = document.getElementById('lock-overlay');
   const settingsContent = document.getElementById('settings-content');
   const qrSection = document.getElementById('settings-qr-section');
@@ -10,6 +14,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   const SUPABASE_URL = 'https://qcnzleiyekbgsiyomwin.supabase.co';
   const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFjbnpsZWl5ZWtiZ3NpeW9td2luIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg0Mjk2NzMsImV4cCI6MjA4NDAwNTY3M30.NlGUfxDPzMgtu_J0vX7FMe-ikxafboGh5GMr-tsaLfI';
   const FREE_MAX_SITES = 3;
+  const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  let authAccessToken = null;
+  let authUserEmail = null;
 
   function generateDeviceId() {
     return 'dev-' + Math.random().toString(36).slice(2, 12);
@@ -53,13 +60,61 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
-  function openUpgrade(deviceId) {
+  function openAppLink(deviceId) {
     chrome.tabs.create({ url: `${SMARTPHONE_APP_URL}?device=${encodeURIComponent(deviceId)}` });
   }
 
+  async function openCheckout(deviceId) {
+    const locale = (navigator.language || 'en').toLowerCase();
+    const currency = locale.startsWith('ja') ? 'jpy' : 'usd';
+    const plan = 'yearly';
+
+    try {
+      const endpoint = authAccessToken ? 'create-checkout' : 'create-checkout-device';
+      const headers = authAccessToken
+        ? {
+            'Content-Type': 'application/json',
+            apikey: SUPABASE_ANON_KEY,
+            Authorization: `Bearer ${authAccessToken}`,
+          }
+        : {
+            'Content-Type': 'application/json',
+            apikey: SUPABASE_ANON_KEY,
+            Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+          };
+      const body = authAccessToken
+        ? JSON.stringify({ currency, plan })
+        : JSON.stringify({ device_id: deviceId, currency, plan });
+
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/${endpoint}`, {
+        method: 'POST',
+        headers,
+        body,
+      });
+
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok || !payload?.url) {
+        const detail = payload?.error || `HTTP ${res.status}`;
+        statusMsg.textContent = `CHECKOUT ERROR: ${detail}`;
+        showSavedStatus();
+        if (!authAccessToken) openAppLink(deviceId);
+        return;
+      }
+      chrome.tabs.create({ url: payload.url });
+    } catch (e) {
+      statusMsg.textContent = 'CHECKOUT FAILED. OPENING APP...';
+      showSavedStatus();
+      openAppLink(deviceId);
+    }
+  }
+
   const deviceId = await getOrCreateDeviceId();
-  const entitlement = await fetchEntitlement(deviceId);
-  const isProUser = entitlement.isPro;
+  let entitlement = await fetchEntitlementByAuth();
+  if (!entitlement) {
+    entitlement = await fetchEntitlement(deviceId);
+  }
+  let isProUser = entitlement.isPro;
+  updateAuthUi();
 
   // 0. Incognito Check
   const incognitoWarning = document.getElementById('incognito-warning');
@@ -75,7 +130,121 @@ document.addEventListener('DOMContentLoaded', async () => {
     chrome.tabs.create({ url: 'chrome://extensions/?id=' + chrome.runtime.id });
   });
 
+  if (authLoginBtn) {
+    authLoginBtn.addEventListener('click', async () => {
+      try {
+        await loginWithGoogleInExtension();
+        const fresh = await fetchEntitlementByAuth();
+        if (fresh) {
+          entitlement = fresh;
+          isProUser = fresh.isPro;
+        }
+        updateAuthUi();
+        statusMsg.textContent = 'LOGIN SUCCESS. REOPEN POPUP TO REFRESH CONTROLS.';
+        showSavedStatus();
+      } catch (e) {
+        statusMsg.textContent = `LOGIN FAILED: ${e?.message || e}`;
+        showSavedStatus();
+      }
+    });
+  }
+
+  if (authLogoutBtn) {
+    authLogoutBtn.addEventListener('click', async () => {
+      await supabase.auth.signOut();
+      authAccessToken = null;
+      authUserEmail = null;
+      updateAuthUi();
+      statusMsg.textContent = 'LOGGED OUT. REOPEN POPUP.';
+      showSavedStatus();
+    });
+  }
+
   statusMsg.textContent = isProUser ? 'PLAN: PRO/TRIAL' : 'PLAN: FREE (LINK DEVICE TO UPGRADE)';
+  if (upgradeBtn) {
+    if (isProUser) {
+      upgradeBtn.classList.add('hidden');
+    } else {
+      upgradeBtn.onclick = async () => {
+        if (entitlement.reason === 'not_linked') {
+          statusMsg.textContent = 'LINK ACCOUNT ON PHONE FIRST';
+          showSavedStatus();
+          openAppLink(deviceId);
+          return;
+        }
+        await openCheckout(deviceId);
+      };
+    }
+  }
+
+  function updateAuthUi() {
+    const loggedIn = !!authAccessToken;
+    if (authLoginBtn) authLoginBtn.classList.toggle('hidden', loggedIn);
+    if (authLogoutBtn) authLogoutBtn.classList.toggle('hidden', !loggedIn);
+    if (authUserLabel) authUserLabel.textContent = loggedIn ? `LOGGED IN: ${authUserEmail || 'ACCOUNT'}` : 'NOT LOGGED IN';
+  }
+
+  async function fetchEntitlementByAuth() {
+    const { data } = await supabase.auth.getSession();
+    const session = data?.session || null;
+    if (!session) return null;
+
+    authAccessToken = session.access_token;
+    authUserEmail = session.user?.email || '';
+
+    const { data: profile, error } = await supabase
+      .from('profiles')
+      .select('subscription_status, trial_ends_at')
+      .eq('id', session.user.id)
+      .single();
+
+    if (error || !profile) {
+      return { isPro: false, reason: 'profile_error' };
+    }
+
+    const sub = String(profile.subscription_status || '').toLowerCase();
+    const isPro = sub === 'active' || isTrialActive(profile.trial_ends_at);
+    return { isPro, reason: isPro ? 'pro_or_trial' : 'free_auth' };
+  }
+
+  async function loginWithGoogleInExtension() {
+    const redirectTo = chrome.identity.getRedirectURL('supabase-auth');
+    const { data, error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo,
+        skipBrowserRedirect: true,
+        queryParams: { prompt: 'select_account' },
+      },
+    });
+    if (error) throw error;
+    if (!data?.url) throw new Error('OAuth URL missing');
+
+    const callbackUrl = await chrome.identity.launchWebAuthFlow({
+      url: data.url,
+      interactive: true,
+    });
+    if (!callbackUrl) throw new Error('Auth canceled');
+
+    const parsed = new URL(callbackUrl);
+    const hash = new URLSearchParams(parsed.hash.replace(/^#/, ''));
+    const access_token = hash.get('access_token');
+    const refresh_token = hash.get('refresh_token');
+    if (access_token && refresh_token) {
+      const { error: setErr } = await supabase.auth.setSession({ access_token, refresh_token });
+      if (setErr) throw setErr;
+      return;
+    }
+
+    const code = parsed.searchParams.get('code') || hash.get('code');
+    if (code) {
+      const { error: exErr } = await supabase.auth.exchangeCodeForSession(code);
+      if (exErr) throw exErr;
+      return;
+    }
+
+    throw new Error('No auth code/token returned');
+  }
   if (!isProUser && unlockBtn) {
     unlockBtn.disabled = true;
     unlockBtn.textContent = 'PRO ONLY';
@@ -98,7 +267,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       await chrome.storage.local.set({ adult_block_enabled: false });
       statusMsg.textContent = 'PRO FEATURE: ADULT BLOCK';
       showSavedStatus();
-      openUpgrade(deviceId);
+      openCheckout(deviceId);
       return;
     }
     await chrome.storage.local.set({ adult_block_enabled: e.target.checked });
@@ -122,7 +291,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         radioButtons.forEach(r => { r.checked = parseInt(r.value) === 5; });
         statusMsg.textContent = 'PRO FEATURE: CUSTOM GRACE PERIOD';
         showSavedStatus();
-        openUpgrade(deviceId);
+        openCheckout(deviceId);
         return;
       }
       await chrome.storage.local.set({ lock_duration_min: parseInt(e.target.value) });
@@ -172,7 +341,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       });
       statusMsg.textContent = 'PRO FEATURE: LOCK SCHEDULE';
       showSavedStatus();
-      openUpgrade(deviceId);
+      openCheckout(deviceId);
       return;
     }
     const activeDays = Array.from(dayChecks).filter(c => c.checked).map(c => parseInt(c.dataset.day));
@@ -203,7 +372,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       await chrome.storage.local.set({ target_squat_count: 10 });
       statusMsg.textContent = 'PRO FEATURE: CUSTOM REP COUNT';
       showSavedStatus();
-      openUpgrade(deviceId);
+      openCheckout(deviceId);
       return;
     }
     let val = parseInt(e.target.value);
@@ -256,7 +425,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (!isProUser) {
           statusMsg.textContent = 'PRO FEATURE: CUSTOM DOMAINS';
           showSavedStatus();
-          openUpgrade(deviceId);
+          openCheckout(deviceId);
           return;
         }
         const idx = parseInt(e.target.dataset.index);
@@ -272,7 +441,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (!isProUser) {
       statusMsg.textContent = 'PRO FEATURE: CUSTOM DOMAINS';
       showSavedStatus();
-      openUpgrade(deviceId);
+      openCheckout(deviceId);
       return;
     }
     const domain = customInput.value.trim().toLowerCase();
@@ -297,7 +466,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (e?.target) e.target.checked = false;
       statusMsg.textContent = 'FREE LIMIT: UP TO 3 SITES';
       showSavedStatus();
-      openUpgrade(deviceId);
+      openCheckout(deviceId);
       return;
     }
     await chrome.storage.local.set({ blocked_sites: activeSites });
