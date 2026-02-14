@@ -112,6 +112,146 @@ document.addEventListener('DOMContentLoaded', async () => {
   let entitlement = await fetchEntitlementByAuth();
   if (!entitlement) {
     entitlement = await fetchEntitlement(deviceId);
+<<<<<<< Updated upstream
+=======
+=======
+  async function handleLoginClick() {
+    setTopStatus('LOGIN CLICKED...');
+    try {
+      if (!supabase) {
+        statusMsg.textContent = 'EXT LOGIN UNAVAILABLE. OPENING PHONE LOGIN...';
+        showSavedStatus();
+        if (!deviceId) deviceId = await getOrCreateDeviceId();
+        openAppLink(deviceId);
+        return;
+      }
+      statusMsg.textContent = 'LOGIN: PREPARING OAUTH URL...';
+      showSavedStatus();
+      await loginWithGoogleInExtension();
+      const fresh = await fetchEntitlementByAuth();
+      if (fresh) {
+        entitlement = fresh;
+        isProUser = fresh.isPro;
+      }
+      updateAuthUi();
+      updatePlanUi();
+      statusMsg.textContent = 'LOGIN SUCCESS. REOPEN POPUP TO REFRESH CONTROLS.';
+      showSavedStatus();
+    } catch (e) {
+      setTopStatus(`LOGIN FAILED: ${e?.message || e}`);
+      statusMsg.textContent = `LOGIN FAILED: ${e?.message || e}`;
+      showSavedStatus();
+    }
+  }
+
+  async function handleUpgradeClick() {
+    if (authUserLabel) authUserLabel.textContent = 'UPGRADE CLICKED...';
+    try {
+      if (!deviceId) {
+        deviceId = await getOrCreateDeviceId();
+      }
+      if (!authAccessToken && entitlement.reason === 'not_linked') {
+        statusMsg.textContent = 'LINK ACCOUNT ON PHONE FIRST';
+        showSavedStatus();
+        openAppLink(deviceId);
+        return;
+      }
+      await openCheckout(deviceId);
+    } catch (e) {
+      statusMsg.textContent = `UPGRADE FAILED: ${e?.message || e}`;
+      showSavedStatus();
+    }
+  }
+
+  async function triggerLogin() {
+    if (loginInFlight) return;
+    loginInFlight = true;
+    try {
+      await handleLoginClick();
+    } finally {
+      loginInFlight = false;
+    }
+  }
+
+  async function triggerUpgrade() {
+    if (upgradeInFlight) return;
+    upgradeInFlight = true;
+    try {
+      await handleUpgradeClick();
+    } finally {
+      upgradeInFlight = false;
+    }
+  }
+
+  async function triggerManageSubscription() {
+    if (manageInFlight) return;
+    manageInFlight = true;
+    try {
+      await openCustomerPortal();
+      const fresh = await fetchEntitlementByAuth();
+      if (fresh) {
+        entitlement = fresh;
+        isProUser = fresh.isPro;
+        updatePlanUi();
+      }
+    } finally {
+      manageInFlight = false;
+    }
+  }
+
+  if (authLoginBtn) {
+    authLoginBtn.onclick = (e) => {
+      e.preventDefault();
+      triggerLogin();
+    };
+    authLoginBtn.addEventListener('pointerup', (e) => {
+      e.preventDefault();
+      triggerLogin();
+    });
+  }
+  if (upgradeBtn) {
+    upgradeBtn.onclick = (e) => {
+      e.preventDefault();
+      triggerUpgrade();
+    };
+    upgradeBtn.addEventListener('pointerup', (e) => {
+      e.preventDefault();
+      triggerUpgrade();
+    });
+  }
+  if (manageSubscriptionBtn) {
+    manageSubscriptionBtn.onclick = (e) => {
+      e.preventDefault();
+      triggerManageSubscription();
+    };
+    manageSubscriptionBtn.addEventListener('pointerup', (e) => {
+      e.preventDefault();
+      triggerManageSubscription();
+    });
+  }
+  deviceId = await getOrCreateDeviceId();
+  try {
+    const authEntitlement = await fetchEntitlementByAuth();
+    if (authEntitlement) {
+      entitlement = authEntitlement;
+    } else {
+      entitlement = await fetchEntitlement(deviceId);
+    }
+    isProUser = !!entitlement.isPro;
+  } catch (e) {
+    entitlement = {
+      isPro: false,
+      reason: 'init_error',
+      planState: 'unknown',
+      trialDaysLeft: 0,
+      cancelAtPeriodEnd: false,
+      currentPeriodEnd: null,
+    };
+    isProUser = false;
+    statusMsg.textContent = 'INIT WARNING: CONTINUING IN FREE MODE';
+    showSavedStatus();
+>>>>>>> Stashed changes
+>>>>>>> Stashed changes
   }
   let isProUser = entitlement.isPro;
   updateAuthUi();
