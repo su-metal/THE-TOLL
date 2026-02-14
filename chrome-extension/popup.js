@@ -231,16 +231,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
-<<<<<<< Updated upstream
-  const deviceId = await getOrCreateDeviceId();
-<<<<<<< Updated upstream
-  let entitlement = { isPro: false, reason: 'init_default' };
-  let isProUser = false;
-=======
-  let entitlement = await fetchEntitlementByAuth();
-  if (!entitlement) {
-    entitlement = await fetchEntitlement(deviceId);
-=======
   async function handleLoginClick() {
     setTopStatus('LOGIN CLICKED...');
     try {
@@ -356,7 +346,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
   deviceId = await getOrCreateDeviceId();
->>>>>>> Stashed changes
   try {
     const authEntitlement = await fetchEntitlementByAuth();
     if (authEntitlement) {
@@ -366,12 +355,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     isProUser = !!entitlement.isPro;
   } catch (e) {
-<<<<<<< Updated upstream
-    entitlement = { isPro: false, reason: 'init_error' };
-    isProUser = false;
-    statusMsg.textContent = 'INIT WARNING: CONTINUING IN FREE MODE';
-    showSavedStatus();
-=======
     entitlement = {
       isPro: false,
       reason: 'init_error',
@@ -383,8 +366,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     isProUser = false;
     statusMsg.textContent = 'INIT WARNING: CONTINUING IN FREE MODE';
     showSavedStatus();
->>>>>>> Stashed changes
->>>>>>> Stashed changes
   }
   updateAuthUi();
   updatePlanUi();
