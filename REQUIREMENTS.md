@@ -307,7 +307,7 @@ v1.1の完了条件:
 ## 14. Auto Progress Snapshot
 
 <!-- AUTO_STATUS_START -->
-Last auto update: 2026-02-13
+Last auto update: 2026-02-14
 
 | Phase | Completed | Total | Progress | Status |
 |---|---:|---:|---:|---|
