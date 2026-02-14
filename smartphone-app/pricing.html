@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>THE TOLL - Pricing</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;700&family=Roboto+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css?v=2.18">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+  <style>
+    .pricing-title {
+      font-size: 1.9rem;
+      margin-bottom: 8px;
+    }
+    .pricing-note {
+      font-size: 0.8rem;
+      margin: 0 0 18px;
+      opacity: 0.85;
+    }
+    .price-sub {
+      display: block;
+      font-size: 0.78rem;
+      margin-top: 4px;
+      opacity: 0.85;
+    }
+    .status-msg {
+      min-height: 24px;
+      font-size: 0.78rem;
+      margin: 8px 0 14px;
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="screen active">
+      <div class="container">
+        <h1 class="pricing-title">THE TOLL</h1>
+        <p id="subtitle" class="subtitle">CHOOSE YOUR PLAN</p>
+        <p id="note" class="pricing-note">Select a plan, then continue to secure Stripe checkout.</p>
+
+        <button id="monthly-btn" class="btn secondary">
+          <span id="monthly-label">MONTHLY PLAN</span>
+          <span id="monthly-sub" class="price-sub">Final amount shown at checkout</span>
+        </button>
+
+        <button id="yearly-btn" class="btn">
+          <span id="yearly-label">YEARLY PLAN</span>
+          <span id="yearly-sub" class="price-sub">Recommended for lower annual cost</span>
+        </button>
+
+        <p id="status-msg" class="status-msg"></p>
+        <button id="back-btn" class="btn secondary">BACK</button>
+      </div>
+    </div>
+  </div>
+  <script src="pricing.js?v=1.0.0"></script>
+</body>
+</html>

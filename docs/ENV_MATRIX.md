@@ -1,6 +1,6 @@
 # THE TOLL Environment Matrix
 
-Last updated: 2026-02-12
+Last updated: 2026-02-13
 
 ## Rule
 - Never commit real secrets to Git.
@@ -22,6 +22,7 @@ Last updated: 2026-02-12
 |---|---|---|---|
 | `STRIPE_SECRET_KEY` | Stripe server API | `sk_test_...` / `sk_live_...` | Stripe Dashboard |
 | `STRIPE_WEBHOOK_SECRET` | webhook signature verify | `whsec_...` | Stripe Webhook endpoint |
+| `PUBLIC_APP_URL` | checkout/portal return base URL | `https://...` | App hosting config |
 | `STRIPE_PRICE_ID_USD_MONTHLY` | checkout price mapping | `price_...` | Stripe Product/Price |
 | `STRIPE_PRICE_ID_USD_YEARLY` | checkout price mapping | `price_...` | Stripe Product/Price |
 | `STRIPE_PRICE_ID_JPY_MONTHLY` | checkout price mapping | `price_...` | Stripe Product/Price |
@@ -48,8 +49,13 @@ Do not mix rows across modes.
 1. Set/rotate Supabase secrets.
 2. Deploy functions:
    - `create-checkout`
+   - `create-checkout-device`
+   - `create-customer-portal`
    - `stripe-webhook`
 3. Deploy smartphone app.
 4. Validate billing end-to-end in Stripe test mode.
-5. Validate `profiles.subscription_status` transition.
-
+5. Validate webhook events:
+   - `checkout.session.completed`
+   - `customer.subscription.updated`
+   - `customer.subscription.deleted`
+6. Validate `profiles` / `device_links` entitlement transition.

@@ -2,9 +2,12 @@ document.addEventListener('DOMContentLoaded', async () => {
   const statusMsg = document.getElementById('status-msg');
   const unlockBtn = document.getElementById('unlock-settings-btn');
   const upgradeBtn = document.getElementById('upgrade-btn');
+  const manageSubscriptionBtn = document.getElementById('manage-subscription-btn');
   const authLoginBtn = document.getElementById('auth-login-btn');
   const authLogoutBtn = document.getElementById('auth-logout-btn');
   const authUserLabel = document.getElementById('auth-user-label');
+  const planLabel = document.getElementById('plan-label');
+  const planDetailLabel = document.getElementById('plan-detail-label');
   const lockOverlay = document.getElementById('lock-overlay');
   const settingsContent = document.getElementById('settings-content');
   const qrSection = document.getElementById('settings-qr-section');
@@ -14,9 +17,28 @@ document.addEventListener('DOMContentLoaded', async () => {
   const SUPABASE_URL = 'https://qcnzleiyekbgsiyomwin.supabase.co';
   const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFjbnpsZWl5ZWtiZ3NpeW9td2luIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg0Mjk2NzMsImV4cCI6MjA4NDAwNTY3M30.NlGUfxDPzMgtu_J0vX7FMe-ikxafboGh5GMr-tsaLfI';
   const FREE_MAX_SITES = 3;
-  const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  const supabase = window.supabase?.createClient
+    ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+    : null;
   let authAccessToken = null;
   let authUserEmail = null;
+  let deviceId = null;
+  let entitlement = {
+    isPro: false,
+    reason: 'init_default',
+    planState: 'unknown',
+    trialDaysLeft: 0,
+    cancelAtPeriodEnd: false,
+    currentPeriodEnd: null,
+  };
+  let isProUser = false;
+  let loginInFlight = false;
+  let upgradeInFlight = false;
+  let manageInFlight = false;
+
+  function setTopStatus(text) {
+    if (authUserLabel) authUserLabel.textContent = text;
+  }
 
   function generateDeviceId() {
     return 'dev-' + Math.random().toString(36).slice(2, 12);
@@ -38,8 +60,70 @@ document.addEventListener('DOMContentLoaded', async () => {
     return Number.isFinite(t) && t > Date.now();
   }
 
+  function getTrialDaysLeft(trialEndsAt) {
+    if (!trialEndsAt) return 0;
+    const ms = new Date(trialEndsAt).getTime() - Date.now();
+    if (!Number.isFinite(ms) || ms <= 0) return 0;
+    return Math.max(1, Math.ceil(ms / (24 * 60 * 60 * 1000)));
+  }
+
+  function formatYmd(dateLike) {
+    if (!dateLike) return null;
+    const dt = new Date(dateLike);
+    if (!Number.isFinite(dt.getTime())) return null;
+    const y = dt.getFullYear();
+    const m = String(dt.getMonth() + 1).padStart(2, '0');
+    const d = String(dt.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  }
+
+  function updatePlanUi() {
+    if (upgradeBtn) {
+      upgradeBtn.classList.toggle('hidden', !!entitlement?.isPro);
+    }
+    if (manageSubscriptionBtn) {
+      const canManage = !!authAccessToken && String(entitlement?.planState || '').toLowerCase() === 'pro';
+      manageSubscriptionBtn.classList.toggle('hidden', !canManage);
+    }
+    if (planDetailLabel) {
+      planDetailLabel.textContent = '';
+      planDetailLabel.classList.add('hidden');
+    }
+    if (!planLabel) return;
+    planLabel.classList.remove('plan-free', 'plan-trial', 'plan-pro');
+
+    const state = (entitlement?.planState || 'unknown').toLowerCase();
+    const days = entitlement?.trialDaysLeft || 0;
+
+    if (state === 'pro') {
+      planLabel.textContent = 'PLAN: PRO';
+      planLabel.classList.add('plan-pro');
+      if (planDetailLabel && entitlement?.cancelAtPeriodEnd) {
+        const ymd = formatYmd(entitlement?.currentPeriodEnd);
+        planDetailLabel.textContent = ymd
+          ? `CANCEL SCHEDULED: PRO UNTIL ${ymd}`
+          : 'CANCEL SCHEDULED: PRO UNTIL PERIOD END';
+        planDetailLabel.classList.remove('hidden');
+      }
+      return;
+    }
+    if (state === 'trial') {
+      planLabel.textContent = days > 0 ? `PLAN: TRIAL (${days}D LEFT)` : 'PLAN: TRIAL';
+      planLabel.classList.add('plan-trial');
+      return;
+    }
+
+    if (state === 'free') {
+      planLabel.textContent = 'PLAN: FREE';
+      planLabel.classList.add('plan-free');
+      return;
+    }
+
+    planLabel.textContent = 'PLAN: CHECKING...';
+  }
+
   async function fetchEntitlement(deviceId) {
-    const url = `${SUPABASE_URL}/rest/v1/device_links?device_id=eq.${encodeURIComponent(deviceId)}&select=plan_tier,subscription_status,trial_ends_at`;
+    const url = `${SUPABASE_URL}/rest/v1/device_links?device_id=eq.${encodeURIComponent(deviceId)}&select=plan_tier,subscription_status,trial_ends_at,cancel_at_period_end,current_period_end`;
     try {
       const res = await fetch(url, {
         headers: {
@@ -48,15 +132,49 @@ document.addEventListener('DOMContentLoaded', async () => {
         },
         cache: 'no-store',
       });
-      if (!res.ok) return { isPro: false, reason: `HTTP ${res.status}` };
+      if (!res.ok) {
+        return {
+          isPro: false,
+          reason: `HTTP ${res.status}`,
+          planState: 'unknown',
+          trialDaysLeft: 0,
+          cancelAtPeriodEnd: false,
+          currentPeriodEnd: null,
+        };
+      }
       const rows = await res.json();
       const row = rows && rows[0];
-      if (!row) return { isPro: false, reason: 'not_linked' };
+      if (!row) {
+        return {
+          isPro: false,
+          reason: 'not_linked',
+          planState: 'free',
+          trialDaysLeft: 0,
+          cancelAtPeriodEnd: false,
+          currentPeriodEnd: null,
+        };
+      }
       const sub = String(row.subscription_status || '').toLowerCase();
-      const isPro = sub === 'active' || isTrialActive(row.trial_ends_at);
-      return { isPro, reason: isPro ? 'pro_or_trial' : 'free' };
+      const trialActive = isTrialActive(row.trial_ends_at);
+      const isPro = sub === 'active' || trialActive;
+      const planState = sub === 'active' ? 'pro' : (trialActive ? 'trial' : 'free');
+      return {
+        isPro,
+        reason: isPro ? 'pro_or_trial' : 'free',
+        planState,
+        trialDaysLeft: getTrialDaysLeft(row.trial_ends_at),
+        cancelAtPeriodEnd: !!row.cancel_at_period_end,
+        currentPeriodEnd: row.current_period_end || null,
+      };
     } catch (e) {
-      return { isPro: false, reason: 'fetch_error' };
+      return {
+        isPro: false,
+        reason: 'fetch_error',
+        planState: 'unknown',
+        trialDaysLeft: 0,
+        cancelAtPeriodEnd: false,
+        currentPeriodEnd: null,
+      };
     }
   }
 
@@ -64,53 +182,181 @@ document.addEventListener('DOMContentLoaded', async () => {
     chrome.tabs.create({ url: `${SMARTPHONE_APP_URL}?device=${encodeURIComponent(deviceId)}` });
   }
 
+  function getPricingLink(deviceId) {
+    const lang = (navigator.language || 'en').toLowerCase().startsWith('ja') ? 'ja' : 'en';
+    const qs = new URLSearchParams();
+    if (deviceId) qs.set('device', deviceId);
+    qs.set('lang', lang);
+    qs.set('source', 'extension');
+    return `${SMARTPHONE_APP_URL}pricing.html?${qs.toString()}`;
+  }
+
   async function openCheckout(deviceId) {
-    const locale = (navigator.language || 'en').toLowerCase();
-    const currency = locale.startsWith('ja') ? 'jpy' : 'usd';
-    const plan = 'yearly';
+    chrome.tabs.create({ url: getPricingLink(deviceId) });
+  }
+
+  async function openCustomerPortal() {
+    if (!authAccessToken) {
+      statusMsg.textContent = 'LOGIN REQUIRED';
+      showSavedStatus();
+      return;
+    }
 
     try {
-      const endpoint = authAccessToken ? 'create-checkout' : 'create-checkout-device';
-      const headers = authAccessToken
-        ? {
-            'Content-Type': 'application/json',
-            apikey: SUPABASE_ANON_KEY,
-            Authorization: `Bearer ${authAccessToken}`,
-          }
-        : {
-            'Content-Type': 'application/json',
-            apikey: SUPABASE_ANON_KEY,
-            Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
-          };
-      const body = authAccessToken
-        ? JSON.stringify({ currency, plan })
-        : JSON.stringify({ device_id: deviceId, currency, plan });
-
-      const res = await fetch(`${SUPABASE_URL}/functions/v1/${endpoint}`, {
+      const appReturnUrl = `${SMARTPHONE_APP_URL}?portal=return${deviceId ? `&device=${encodeURIComponent(deviceId)}` : ''}`;
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/create-customer-portal`, {
         method: 'POST',
-        headers,
-        body,
+        headers: {
+          'Content-Type': 'application/json',
+          apikey: SUPABASE_ANON_KEY,
+          Authorization: `Bearer ${authAccessToken}`,
+        },
+        body: JSON.stringify({ return_url: appReturnUrl }),
       });
 
       const payload = await res.json().catch(() => ({}));
       if (!res.ok || !payload?.url) {
         const detail = payload?.error || `HTTP ${res.status}`;
-        statusMsg.textContent = `CHECKOUT ERROR: ${detail}`;
+        statusMsg.textContent = `PORTAL ERROR: ${detail}`;
         showSavedStatus();
-        if (!authAccessToken) openAppLink(deviceId);
         return;
       }
+
       chrome.tabs.create({ url: payload.url });
-    } catch (e) {
-      statusMsg.textContent = 'CHECKOUT FAILED. OPENING APP...';
+      statusMsg.textContent = 'PORTAL OPENED';
       showSavedStatus();
-      openAppLink(deviceId);
+    } catch (e) {
+      statusMsg.textContent = 'PORTAL FAILED';
+      showSavedStatus();
     }
   }
 
+<<<<<<< Updated upstream
   const deviceId = await getOrCreateDeviceId();
+<<<<<<< Updated upstream
   let entitlement = { isPro: false, reason: 'init_default' };
   let isProUser = false;
+=======
+  let entitlement = await fetchEntitlementByAuth();
+  if (!entitlement) {
+    entitlement = await fetchEntitlement(deviceId);
+=======
+  async function handleLoginClick() {
+    setTopStatus('LOGIN CLICKED...');
+    try {
+      if (!supabase) {
+        statusMsg.textContent = 'EXT LOGIN UNAVAILABLE. OPENING PHONE LOGIN...';
+        showSavedStatus();
+        if (!deviceId) deviceId = await getOrCreateDeviceId();
+        openAppLink(deviceId);
+        return;
+      }
+      statusMsg.textContent = 'LOGIN: PREPARING OAUTH URL...';
+      showSavedStatus();
+      await loginWithGoogleInExtension();
+      const fresh = await fetchEntitlementByAuth();
+      if (fresh) {
+        entitlement = fresh;
+        isProUser = fresh.isPro;
+      }
+      updateAuthUi();
+      updatePlanUi();
+      statusMsg.textContent = 'LOGIN SUCCESS. REOPEN POPUP TO REFRESH CONTROLS.';
+      showSavedStatus();
+    } catch (e) {
+      setTopStatus(`LOGIN FAILED: ${e?.message || e}`);
+      statusMsg.textContent = `LOGIN FAILED: ${e?.message || e}`;
+      showSavedStatus();
+    }
+  }
+
+  async function handleUpgradeClick() {
+    if (authUserLabel) authUserLabel.textContent = 'UPGRADE CLICKED...';
+    try {
+      if (!deviceId) {
+        deviceId = await getOrCreateDeviceId();
+      }
+      if (!authAccessToken && entitlement.reason === 'not_linked') {
+        statusMsg.textContent = 'LINK ACCOUNT ON PHONE FIRST';
+        showSavedStatus();
+        openAppLink(deviceId);
+        return;
+      }
+      await openCheckout(deviceId);
+    } catch (e) {
+      statusMsg.textContent = `UPGRADE FAILED: ${e?.message || e}`;
+      showSavedStatus();
+    }
+  }
+
+  async function triggerLogin() {
+    if (loginInFlight) return;
+    loginInFlight = true;
+    try {
+      await handleLoginClick();
+    } finally {
+      loginInFlight = false;
+    }
+  }
+
+  async function triggerUpgrade() {
+    if (upgradeInFlight) return;
+    upgradeInFlight = true;
+    try {
+      await handleUpgradeClick();
+    } finally {
+      upgradeInFlight = false;
+    }
+  }
+
+  async function triggerManageSubscription() {
+    if (manageInFlight) return;
+    manageInFlight = true;
+    try {
+      await openCustomerPortal();
+      const fresh = await fetchEntitlementByAuth();
+      if (fresh) {
+        entitlement = fresh;
+        isProUser = fresh.isPro;
+        updatePlanUi();
+      }
+    } finally {
+      manageInFlight = false;
+    }
+  }
+
+  if (authLoginBtn) {
+    authLoginBtn.onclick = (e) => {
+      e.preventDefault();
+      triggerLogin();
+    };
+    authLoginBtn.addEventListener('pointerup', (e) => {
+      e.preventDefault();
+      triggerLogin();
+    });
+  }
+  if (upgradeBtn) {
+    upgradeBtn.onclick = (e) => {
+      e.preventDefault();
+      triggerUpgrade();
+    };
+    upgradeBtn.addEventListener('pointerup', (e) => {
+      e.preventDefault();
+      triggerUpgrade();
+    });
+  }
+  if (manageSubscriptionBtn) {
+    manageSubscriptionBtn.onclick = (e) => {
+      e.preventDefault();
+      triggerManageSubscription();
+    };
+    manageSubscriptionBtn.addEventListener('pointerup', (e) => {
+      e.preventDefault();
+      triggerManageSubscription();
+    });
+  }
+  deviceId = await getOrCreateDeviceId();
+>>>>>>> Stashed changes
   try {
     const authEntitlement = await fetchEntitlementByAuth();
     if (authEntitlement) {
@@ -120,12 +366,28 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     isProUser = !!entitlement.isPro;
   } catch (e) {
+<<<<<<< Updated upstream
     entitlement = { isPro: false, reason: 'init_error' };
     isProUser = false;
     statusMsg.textContent = 'INIT WARNING: CONTINUING IN FREE MODE';
     showSavedStatus();
+=======
+    entitlement = {
+      isPro: false,
+      reason: 'init_error',
+      planState: 'unknown',
+      trialDaysLeft: 0,
+      cancelAtPeriodEnd: false,
+      currentPeriodEnd: null,
+    };
+    isProUser = false;
+    statusMsg.textContent = 'INIT WARNING: CONTINUING IN FREE MODE';
+    showSavedStatus();
+>>>>>>> Stashed changes
+>>>>>>> Stashed changes
   }
   updateAuthUi();
+  updatePlanUi();
 
   // 0. Incognito Check
   const incognitoWarning = document.getElementById('incognito-warning');
@@ -141,51 +403,26 @@ document.addEventListener('DOMContentLoaded', async () => {
     chrome.tabs.create({ url: 'chrome://extensions/?id=' + chrome.runtime.id });
   });
 
-  if (authLoginBtn) {
-    authLoginBtn.addEventListener('click', async () => {
-      try {
-        await loginWithGoogleInExtension();
-        const fresh = await fetchEntitlementByAuth();
-        if (fresh) {
-          entitlement = fresh;
-          isProUser = fresh.isPro;
-        }
-        updateAuthUi();
-        statusMsg.textContent = 'LOGIN SUCCESS. REOPEN POPUP TO REFRESH CONTROLS.';
-        showSavedStatus();
-      } catch (e) {
-        statusMsg.textContent = `LOGIN FAILED: ${e?.message || e}`;
-        showSavedStatus();
-      }
-    });
-  }
-
   if (authLogoutBtn) {
     authLogoutBtn.addEventListener('click', async () => {
-      await supabase.auth.signOut();
+      if (supabase) {
+        await supabase.auth.signOut();
+      }
       authAccessToken = null;
       authUserEmail = null;
+      entitlement = await fetchEntitlement(deviceId);
+      isProUser = !!entitlement.isPro;
       updateAuthUi();
-      statusMsg.textContent = 'LOGGED OUT. REOPEN POPUP.';
+      updatePlanUi();
+      statusMsg.textContent = 'LOGGED OUT.';
       showSavedStatus();
     });
   }
 
-  statusMsg.textContent = isProUser ? 'PLAN: PRO/TRIAL' : 'PLAN: FREE (LINK DEVICE TO UPGRADE)';
-  if (upgradeBtn) {
-    if (isProUser) {
-      upgradeBtn.classList.add('hidden');
-    } else {
-      upgradeBtn.onclick = async () => {
-        if (entitlement.reason === 'not_linked') {
-          statusMsg.textContent = 'LINK ACCOUNT ON PHONE FIRST';
-          showSavedStatus();
-          openAppLink(deviceId);
-          return;
-        }
-        await openCheckout(deviceId);
-      };
-    }
+  if (!supabase) {
+    statusMsg.textContent = 'EXT LOGIN OFF. USE PHONE LOGIN LINK.';
+  } else {
+    statusMsg.textContent = 'READY';
   }
 
   function updateAuthUi() {
@@ -196,6 +433,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   async function fetchEntitlementByAuth() {
+    if (!supabase) return null;
     const { data } = await supabase.auth.getSession();
     const session = data?.session || null;
     if (!session) return null;
@@ -203,23 +441,71 @@ document.addEventListener('DOMContentLoaded', async () => {
     authAccessToken = session.access_token;
     authUserEmail = session.user?.email || '';
 
-    const { data: profile, error } = await supabase
-      .from('profiles')
-      .select('subscription_status, trial_ends_at')
-      .eq('id', session.user.id)
-      .single();
+    let profile = null;
+    let lastError = null;
+    for (let i = 0; i < 8; i++) {
+      const { data: row, error } = await supabase
+        .from('profiles')
+        .select('subscription_status, plan_tier, trial_ends_at, trial_used, cancel_at_period_end, current_period_end')
+        .eq('id', session.user.id)
+        .single();
+      profile = row || null;
+      lastError = error || null;
+      if (profile) break;
+      await new Promise((r) => setTimeout(r, 400));
+    }
 
-    if (error || !profile) {
-      return { isPro: false, reason: 'profile_error' };
+    if (!profile) {
+      statusMsg.textContent = `PROFILE ERROR: ${lastError?.message || 'no row'}`;
+      showSavedStatus();
+      return {
+        isPro: false,
+        reason: 'profile_error',
+        planState: 'unknown',
+        trialDaysLeft: 0,
+        cancelAtPeriodEnd: false,
+        currentPeriodEnd: null,
+      };
+    }
+
+    // Start one-time 7-day trial for newly created free accounts.
+    if (!profile.trial_ends_at && !profile.trial_used && String(profile.subscription_status || '').toLowerCase() !== 'active') {
+      const trialEnds = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+      const { error: trialInitError } = await supabase
+        .from('profiles')
+        .update({ trial_ends_at: trialEnds, trial_used: true, plan_tier: 'free' })
+        .eq('id', session.user.id);
+      if (!trialInitError) {
+        profile.trial_ends_at = trialEnds;
+        profile.trial_used = true;
+        if (!profile.plan_tier) profile.plan_tier = 'free';
+      } else {
+        statusMsg.textContent = `TRIAL INIT ERROR: ${trialInitError.message}`;
+        showSavedStatus();
+      }
     }
 
     const sub = String(profile.subscription_status || '').toLowerCase();
-    const isPro = sub === 'active' || isTrialActive(profile.trial_ends_at);
-    return { isPro, reason: isPro ? 'pro_or_trial' : 'free_auth' };
+    const trialActive = isTrialActive(profile.trial_ends_at);
+    const isPro = sub === 'active' || trialActive;
+    const planState = sub === 'active' ? 'pro' : (trialActive ? 'trial' : 'free');
+    return {
+      isPro,
+      reason: isPro ? 'pro_or_trial' : 'free_auth',
+      planState,
+      trialDaysLeft: getTrialDaysLeft(profile.trial_ends_at),
+      cancelAtPeriodEnd: !!profile.cancel_at_period_end,
+      currentPeriodEnd: profile.current_period_end || null,
+    };
   }
 
   async function loginWithGoogleInExtension() {
+    if (!supabase) throw new Error('Supabase library not available in popup');
+    setTopStatus('LOGIN: GET REDIRECT URL');
     const redirectTo = chrome.identity.getRedirectURL('supabase-auth');
+    statusMsg.textContent = 'LOGIN: REQUESTING PROVIDER URL...';
+    showSavedStatus();
+    setTopStatus('LOGIN: REQUEST PROVIDER URL');
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
@@ -230,12 +516,19 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
     if (error) throw error;
     if (!data?.url) throw new Error('OAuth URL missing');
+    statusMsg.textContent = 'LOGIN: OPENING GOOGLE AUTH...';
+    showSavedStatus();
+    setTopStatus('LOGIN: OPEN GOOGLE AUTH');
 
-    const callbackUrl = await chrome.identity.launchWebAuthFlow({
-      url: data.url,
-      interactive: true,
-    });
+    const callbackUrl = await Promise.race([
+      chrome.identity.launchWebAuthFlow({
+        url: data.url,
+        interactive: true,
+      }),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('OAuth timeout: check redirect URL settings')), 45000)),
+    ]);
     if (!callbackUrl) throw new Error('Auth canceled');
+    setTopStatus('LOGIN: CALLBACK RECEIVED');
 
     const parsed = new URL(callbackUrl);
     const hash = new URLSearchParams(parsed.hash.replace(/^#/, ''));

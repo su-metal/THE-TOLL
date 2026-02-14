@@ -1,6 +1,6 @@
 # THE TOLL 要件定義（実装準拠）
 
-最終更新: 2026-02-12 (更新版)  
+最終更新: 2026-02-13 (実装同期版)  
 対象実装: `smartphone-app/`, `chrome-extension/`, `supabase/functions/`
 
 ## 1. 目的
@@ -62,11 +62,13 @@ Web閲覧を一時的にロックし、スマホで指定回数の運動を完�
 - メール/パスワード認証は導線から廃止する（運用コスト削減方針）。
 
 ### FR-08 サブスク状態判定
-- `profiles.subscription_status` を参照し、`active` のみ利用可能とする。
-- `inactive` の場合はセッション開始導線を無効化する。
+- 判定は `profiles.subscription_status` と `profiles.trial_ends_at` で行う。
+- `active` または `trial_ends_at > now` を Pro権限として扱う。
+- `free` ユーザーは利用不可ではなく、制限付き利用とする（拡張設定項目を制限）。
+- 拡張UIには常時プラン状態（FREE/TRIAL/PRO）を表示する。
 
 ### FR-09 決済導線
-- スマホアプリから Edge Function `create-checkout` を呼び出し、Stripe Checkout URLへ遷移する。
+- スマホアプリまたは拡張から Edge Function `create-checkout` / `create-checkout-device` を呼び出し、Stripe Checkout URLへ遷移する。
 - Webhook受信により `profiles.subscription_status` を `active/inactive` 更新する。
 
 ### FR-10 セッション開始
@@ -108,6 +110,7 @@ Web閲覧を一時的にロックし、スマホで指定回数の運動を完�
 - 課金済みユーザー向けに `Manage Subscription` 導線を提供する。
 - Stripe Customer Portalに遷移し、解約/支払い方法変更を可能にする。
 - 戻り先で状態を再同期し、`profiles.subscription_status` をUIに反映する。
+- 解約予約時は `cancel_at_period_end` / `current_period_end` を表示し、期間終了までPROを維持する。
 
 ## 5. データ要件
 
@@ -119,7 +122,22 @@ Web閲覧を一時的にロックし、スマホで指定回数の運動を完�
 - `profiles`（実装参照）
   - `id`
   - `subscription_status` (`active`/`inactive`)
+  - `plan_tier` (`free`/`pro`)
+  - `trial_ends_at`
+  - `trial_used`
+  - `cancel_at_period_end`
+  - `current_period_end`
   - `stripe_customer_id`
+- `device_links`
+  - `device_id: text`
+  - `user_id: uuid`
+  - `subscription_status`
+  - `plan_tier`
+  - `trial_ends_at`
+  - `cancel_at_period_end`
+  - `current_period_end`
+  - `updated_at`
+  - `last_seen_at`
 
 ### 5.2 クライアント保存
 - `localStorage`（スマホ）:
@@ -145,8 +163,9 @@ Web閲覧を一時的にロックし、スマホで指定回数の運動を完�
   - `unlock_session(session_id)`
 - Supabase Edge Functions
   - `create-checkout`
+  - `create-checkout-device`
   - `stripe-webhook`
-  - `create-customer-portal` (予定)
+  - `create-customer-portal`
 
 ## 7. 非機能要件
 - 対応環境:
@@ -174,7 +193,7 @@ Web閲覧を一時的にロックし、スマホで指定回数の運動を完�
 - AC-03: 目標回数達成後、`UNLOCK PC` でPCロックが解除される。
 - AC-04: 設定した猶予時間経過後に自動再ロックされる。
 - AC-05: スケジュール外時間帯ではロックされない。
-- AC-06: `active` 会員のみセッション開始できる。
+- AC-06: `active` または有効トライアル中は制限なし、`free` は制限付きで利用できる。
 - AC-07: Stripe決済完了で `subscription_status=active` に更新される。
 
 ## 10. リリース前必須項目
@@ -241,10 +260,10 @@ v1.1の完了条件:
 - FR-15 PWA/キャッシュ
 
 ### 12.2 進行中
-- FR-09 決済導線の最終安定化（価格ID/キー/エラーハンドリング最終調整）
+- FR-09 決済導線の最終安定化（本番モード最終確認）
+- Webhook本番検証（`customer.subscription.deleted` のライブ最終確認）
 
 ### 12.3 未着手/残タスク
-- FR-17 サブスク管理導線（Customer Portal）
 - `unlock_session` 側の paid-user 強制チェック（サーバー側最終ガード）
 - 決済成功/キャンセル戻り時の明示UI
 
@@ -288,16 +307,16 @@ v1.1の完了条件:
 ## 14. Auto Progress Snapshot
 
 <!-- AUTO_STATUS_START -->
-Last auto update: 2026-02-12
+Last auto update: 2026-02-13
 
 | Phase | Completed | Total | Progress | Status |
 |---|---:|---:|---:|---|
-| A | 0 | 4 | 0% | pending |
-| B | 0 | 2 | 0% | pending |
+| A | 2 | 4 | 50% | in_progress |
+| B | 2 | 2 | 100% | done |
 | C | 0 | 2 | 0% | pending |
-| D | 0 | 3 | 0% | pending |
+| D | 1 | 3 | 33% | in_progress |
 
-Overall progress: **0 / 11 (0%)**
+Overall progress: **5 / 11 (45%)**
 <!-- AUTO_STATUS_END -->
 
 ## 15. Phase Task Checklist (Automation Source)
@@ -307,13 +326,13 @@ Overall progress: **0 / 11 (0%)**
 <!-- AUTO_TASKS_START -->
 ### Phase A (Billing Hardening)
 - [ ] A-01 Secrets整備（Stripe/Supabase）
-- [ ] A-02 create-checkout / stripe-webhook本番想定テスト
+- [x] A-02 create-checkout / stripe-webhook本番想定テスト
 - [ ] A-03 決済後リダイレクト体験整備
-- [ ] A-04 subscription_status遷移の通し確認
+- [x] A-04 subscription_status遷移の通し確認
 
 ### Phase B (Account Management)
-- [ ] B-01 create-customer-portal 実装
-- [ ] B-02 Manage Subscription UI実装
+- [x] B-01 create-customer-portal 実装
+- [x] B-02 Manage Subscription UI実装
 
 ### Phase C (Server-Side Enforcement)
 - [ ] C-01 unlock_sessionでactive会員チェック強制
@@ -322,5 +341,5 @@ Overall progress: **0 / 11 (0%)**
 ### Phase D (Release Prep)
 - [ ] D-01 ストア提出物作成（説明・権限理由・ポリシー）
 - [ ] D-02 実機通し試験（iOS/Android）
-- [ ] D-03 運用Runbook最終化
+- [x] D-03 運用Runbook最終化
 <!-- AUTO_TASKS_END -->

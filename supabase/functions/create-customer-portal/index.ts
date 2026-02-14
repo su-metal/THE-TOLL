@@ -23,6 +23,7 @@ serve(async (req: Request) => {
   }
 
   try {
+    const body = await req.json().catch(() => ({} as Record<string, unknown>));
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) throw new Error("No authorization header");
 
@@ -45,12 +46,16 @@ serve(async (req: Request) => {
     const customerId = profile?.stripe_customer_id;
     if (!customerId) throw new Error("No Stripe customer found for this account");
 
-    const origin = req.headers.get("origin");
-    if (!origin) throw new Error("Missing request origin");
+    const requestedReturnUrl = typeof body.return_url === "string" ? body.return_url.trim() : "";
+    const origin = req.headers.get("origin") || "";
+    const appUrl = Deno.env.get("PUBLIC_APP_URL") || "https://smartphone-app-pi.vercel.app";
+    const returnUrl = /^https?:\/\//.test(requestedReturnUrl)
+      ? requestedReturnUrl
+      : (/^https?:\/\//.test(origin) ? `${origin}/?portal=return` : `${appUrl}/?portal=return`);
 
     const session = await stripe.billingPortal.sessions.create({
       customer: customerId,
-      return_url: `${origin}/?portal=return`,
+      return_url: returnUrl,
     });
 
     return new Response(JSON.stringify({ url: session.url }), {

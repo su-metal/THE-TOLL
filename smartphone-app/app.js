@@ -386,38 +386,16 @@
 
   async function handleLogout() { await state.supabase.auth.signOut(); }
 
+  function getPricingUrl() {
+    const qs = new URLSearchParams();
+    qs.set('lang', APP_LANG);
+    if (state.linkedDeviceId) qs.set('device', state.linkedDeviceId);
+    qs.set('source', 'app');
+    return `${window.location.origin}/pricing.html?${qs.toString()}`;
+  }
+
   async function handleSubscribe() {
-    try {
-      const { data: sessionData } = await state.supabase.auth.getSession();
-      const accessToken = sessionData?.session?.access_token;
-      if (!accessToken) {
-        alert('Please log in again before starting checkout.');
-        return;
-      }
-
-      const plan = 'yearly';
-      const locale = (navigator.language || 'en').toLowerCase();
-      const currency = locale.startsWith('ja') ? 'jpy' : 'usd';
-      const res = await fetch(`${SUPABASE_URL}/functions/v1/create-checkout`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${accessToken}`,
-          'apikey': SUPABASE_ANON_KEY
-        },
-        body: JSON.stringify({ plan, currency })
-      });
-
-      const payload = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        const detail = payload?.error || `HTTP ${res.status}`;
-        alert(`${t('checkout_url_failed')} ${detail}`);
-        return;
-      }
-
-      if (payload?.url) window.location.href = payload.url;
-      else alert(t('checkout_url_failed'));
-    } catch (e) { alert(t('checkout_prepare_failed')); }
+    window.location.href = getPricingUrl();
   }
 
   async function handleManageSubscription() {

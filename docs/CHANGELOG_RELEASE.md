@@ -1,6 +1,6 @@
 # THE TOLL Release Changelog
 
-Last updated: 2026-02-12
+Last updated: 2026-02-13
 
 ## Summary
 - Smartphone app moved from local/ngrok workflow to fixed hosted URL (`https://smartphone-app-pi.vercel.app`).
@@ -34,6 +34,7 @@ Last updated: 2026-02-12
 
 ### 4) Billing Flow
 - `create-checkout` now accepts `plan` and `currency`.
+- Added `create-checkout-device` for linked-device checkout flow from extension.
 - Dynamic secret key mapping added:
   - `STRIPE_PRICE_ID_USD_MONTHLY`
   - `STRIPE_PRICE_ID_USD_YEARLY`
@@ -43,14 +44,23 @@ Last updated: 2026-02-12
 - Checkout return URLs changed to avoid 404:
   - `/?checkout=success`
   - `/?checkout=cancel`
+- Webhook entitlement sync extended:
+  - `profiles` + `device_links` updated together
+  - `cancel_at_period_end` and `current_period_end` persisted
+  - popup shows `CANCEL SCHEDULED: PRO UNTIL YYYY-MM-DD`
 
 ### 5) Auth Flow
 - Email/password auth UI removed from smartphone top page.
 - Google OAuth login introduced (`CONTINUE WITH GOOGLE`).
 
+### 6) Subscription Management
+- Added `create-customer-portal` function support for explicit `return_url`.
+- Added extension popup `MANAGE SUBSCRIPTION` action (PRO + logged-in users).
+- Verified cancellation states:
+  - cancel at period end keeps `PLAN: PRO` until period end
+  - immediate cancel updates to `PLAN: FREE`
+
 ## Open Items (Next)
-- Add `Manage Subscription` (Stripe Customer Portal) UI + function.
 - Add success/cancel checkout UI on return.
 - Enforce paid-user check in unlock path server-side (DB function/RPC).
-- Create store submission artifacts (privacy policy, permissions rationale).
-
+- Finalize store submission details (public URLs, contact info, screenshots).
