@@ -251,7 +251,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     statusMsg.textContent = 'INIT WARNING: CONTINUING IN FREE MODE';
     showSavedStatus();
 >>>>>>> Stashed changes
->>>>>>> Stashed changes
   }
   let isProUser = entitlement.isPro;
   updateAuthUi();
