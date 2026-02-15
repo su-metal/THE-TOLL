@@ -7,6 +7,13 @@
   const params = new URLSearchParams(window.location.search);
   const APP_LANG = params.get('lang') === 'ja' ? 'ja' : 'en';
   const deviceId = (params.get('device') || '').trim();
+  const source = (params.get('source') || 'app').trim();
+  const extensionToken = (params.get('ext_token') || '').trim();
+  if (extensionToken) {
+    params.delete('ext_token');
+    const clean = `${window.location.pathname}${params.toString() ? `?${params.toString()}` : ''}`;
+    window.history.replaceState({}, '', clean);
+  }
 
   const I18N = {
     en: {
@@ -94,7 +101,7 @@
     try {
       const locale = (navigator.language || 'en').toLowerCase();
       const currency = locale.startsWith('ja') ? 'jpy' : 'usd';
-      const accessToken = await getAccessToken();
+      const accessToken = extensionToken || await getAccessToken();
 
       const endpoint = accessToken ? 'create-checkout' : 'create-checkout-device';
       const headers = accessToken
@@ -110,8 +117,8 @@
           };
 
       const body = accessToken
-        ? { currency, plan }
-        : { device_id: deviceId, currency, plan };
+        ? { currency, plan, lang: APP_LANG, source, device_id: deviceId || null }
+        : { device_id: deviceId, currency, plan, lang: APP_LANG, source };
 
       if (!accessToken && !deviceId) {
         setStatus(t('needLogin'));
@@ -142,6 +149,10 @@
   }
 
   function backToApp() {
+    if (source === 'extension') {
+      window.close();
+      return;
+    }
     const qs = new URLSearchParams();
     qs.set('lang', APP_LANG);
     if (deviceId) qs.set('device', deviceId);

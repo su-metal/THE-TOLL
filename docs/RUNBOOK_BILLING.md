@@ -1,6 +1,6 @@
 # THE TOLL Billing Runbook
 
-Last updated: 2026-02-13
+Last updated: 2026-02-15
 
 ## Scope
 Troubleshooting Stripe checkout and subscription status sync in:
@@ -114,6 +114,7 @@ Run from project root (`F:\App_dev\THE TOLL`):
 ```powershell
 supabase link --project-ref qcnzleiyekbgsiyomwin
 supabase functions deploy create-checkout --no-verify-jwt
+supabase functions deploy create-checkout-device --no-verify-jwt
 supabase functions deploy stripe-webhook --no-verify-jwt
 ```
 
@@ -121,6 +122,21 @@ supabase functions deploy stripe-webhook --no-verify-jwt
 - `Listening on http://localhost:9999/` in Edge logs is normal boot output.
 - Actionable data is request result lines (`POST ... 200/400/401/500`).
 - After smartphone JS updates, run app reset (`System Hard Reset`) to avoid stale cache.
+- Extension billing flow now prioritizes logged-in auth token (`create-checkout`) even when `source=extension`, to avoid account mismatch caused by stale `device_links`.
+- If `device_links` upsert fails during login sync, extension rotates local `device_id` and retries link creation.
+- Stripe Link auto-filled email is independent from app account identity; always verify app-side logged-in email and resulting `profiles` row.
+
+## Latest Verified (2026-02-15, Test Mode)
+- Symptom addressed:
+  - Checkout completed but popup remained `PLAN: FREE`.
+  - Billing email in Stripe differed from extension logged-in email.
+- Root cause:
+  - Extension pricing flow used device-only checkout path, so stale `device_links` could resolve another user.
+- Fix reflected:
+  - Pass extension auth token to pricing page and call authenticated `create-checkout`.
+  - Keep device link sync as fallback, with device-id rotation on conflict.
+- Result:
+  - Billing reflected correctly for the logged-in extension account.
 
 ## Validation SQL
 Use SQL Editor:

@@ -59,3 +59,7 @@ Do not mix rows across modes.
    - `customer.subscription.updated`
    - `customer.subscription.deleted`
 6. Validate `profiles` / `device_links` entitlement transition.
+
+## Billing Routing Note (2026-02-15)
+- Extension-origin checkout (`source=extension`) should prioritize authenticated user context (token-based `create-checkout`) to prevent stale `device_links` account mismatch.
+- `create-checkout-device` remains as fallback path when no authenticated token is available.

@@ -35,6 +35,49 @@ document.addEventListener('DOMContentLoaded', async () => {
   let loginInFlight = false;
   let upgradeInFlight = false;
   let manageInFlight = false;
+  let entitlementRefreshInFlight = false;
+
+  function getLoggedOutEntitlement() {
+    return {
+      isPro: false,
+      reason: 'logged_out',
+      planState: 'free',
+      trialDaysLeft: 0,
+      cancelAtPeriodEnd: false,
+      currentPeriodEnd: null,
+    };
+  }
+
+  async function consumeBillingFeedback() {
+    try {
+      const data = await chrome.storage.local.get('toll_billing_feedback');
+      const feedback = data?.toll_billing_feedback;
+      if (!feedback?.message) return;
+      statusMsg.textContent = feedback.message;
+      showSavedStatus(5000);
+      await chrome.storage.local.remove('toll_billing_feedback');
+    } catch (_) {
+      // Non-fatal: if storage read fails, continue without feedback message.
+    }
+  }
+
+  async function refreshEntitlementUi() {
+    if (entitlementRefreshInFlight) return;
+    entitlementRefreshInFlight = true;
+    try {
+      const authEntitlement = await fetchEntitlementByAuth();
+      if (authEntitlement) {
+        entitlement = authEntitlement;
+      } else {
+        entitlement = getLoggedOutEntitlement();
+      }
+      isProUser = !!entitlement.isPro;
+      updateAuthUi();
+      updatePlanUi();
+    } finally {
+      entitlementRefreshInFlight = false;
+    }
+  }
 
   function setTopStatus(text) {
     if (authUserLabel) authUserLabel.textContent = text;
@@ -182,17 +225,32 @@ document.addEventListener('DOMContentLoaded', async () => {
     chrome.tabs.create({ url: `${SMARTPHONE_APP_URL}?device=${encodeURIComponent(deviceId)}` });
   }
 
-  function getPricingLink(deviceId) {
+  function getPricingLink(deviceId, authToken) {
     const lang = (navigator.language || 'en').toLowerCase().startsWith('ja') ? 'ja' : 'en';
     const qs = new URLSearchParams();
     if (deviceId) qs.set('device', deviceId);
     qs.set('lang', lang);
     qs.set('source', 'extension');
+    if (authToken) qs.set('ext_token', authToken);
     return `${SMARTPHONE_APP_URL}pricing.html?${qs.toString()}`;
   }
 
-  async function openCheckout(deviceId) {
-    chrome.tabs.create({ url: getPricingLink(deviceId) });
+  async function openCheckout(deviceId, authToken) {
+    const url = getPricingLink(deviceId, authToken);
+    chrome.windows.create(
+      {
+        url,
+        type: 'popup',
+        focused: true,
+        width: 460,
+        height: 860,
+      },
+      () => {
+        if (chrome.runtime.lastError) {
+          chrome.tabs.create({ url });
+        }
+      }
+    );
   }
 
   async function openCustomerPortal() {
@@ -203,7 +261,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     try {
-      const appReturnUrl = `${SMARTPHONE_APP_URL}?portal=return${deviceId ? `&device=${encodeURIComponent(deviceId)}` : ''}`;
+      const lang = (navigator.language || 'en').toLowerCase().startsWith('ja') ? 'ja' : 'en';
+      const returnQs = new URLSearchParams({
+        portal: 'return',
+        source: 'extension',
+        lang,
+      });
+      if (deviceId) returnQs.set('device', deviceId);
+      const appReturnUrl = `${SMARTPHONE_APP_URL}billing-return.html?${returnQs.toString()}`;
       const res = await fetch(`${SUPABASE_URL}/functions/v1/create-customer-portal`, {
         method: 'POST',
         headers: {
@@ -222,7 +287,20 @@ document.addEventListener('DOMContentLoaded', async () => {
         return;
       }
 
-      chrome.tabs.create({ url: payload.url });
+      chrome.windows.create(
+        {
+          url: payload.url,
+          type: 'popup',
+          focused: true,
+          width: 460,
+          height: 860,
+        },
+        () => {
+          if (chrome.runtime.lastError) {
+            chrome.tabs.create({ url: payload.url });
+          }
+        }
+      );
       statusMsg.textContent = 'PORTAL OPENED';
       showSavedStatus();
     } catch (e) {
@@ -266,13 +344,12 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (!deviceId) {
         deviceId = await getOrCreateDeviceId();
       }
-      if (!authAccessToken && entitlement.reason === 'not_linked') {
-        statusMsg.textContent = 'LINK ACCOUNT ON PHONE FIRST';
+      if (!authAccessToken) {
+        statusMsg.textContent = 'LOGIN REQUIRED';
         showSavedStatus();
-        openAppLink(deviceId);
         return;
       }
-      await openCheckout(deviceId);
+      await openCheckout(deviceId, authAccessToken);
     } catch (e) {
       statusMsg.textContent = `UPGRADE FAILED: ${e?.message || e}`;
       showSavedStatus();
@@ -320,40 +397,22 @@ document.addEventListener('DOMContentLoaded', async () => {
       e.preventDefault();
       triggerLogin();
     };
-    authLoginBtn.addEventListener('pointerup', (e) => {
-      e.preventDefault();
-      triggerLogin();
-    });
   }
   if (upgradeBtn) {
     upgradeBtn.onclick = (e) => {
       e.preventDefault();
       triggerUpgrade();
     };
-    upgradeBtn.addEventListener('pointerup', (e) => {
-      e.preventDefault();
-      triggerUpgrade();
-    });
   }
   if (manageSubscriptionBtn) {
     manageSubscriptionBtn.onclick = (e) => {
       e.preventDefault();
       triggerManageSubscription();
     };
-    manageSubscriptionBtn.addEventListener('pointerup', (e) => {
-      e.preventDefault();
-      triggerManageSubscription();
-    });
   }
   deviceId = await getOrCreateDeviceId();
   try {
-    const authEntitlement = await fetchEntitlementByAuth();
-    if (authEntitlement) {
-      entitlement = authEntitlement;
-    } else {
-      entitlement = await fetchEntitlement(deviceId);
-    }
-    isProUser = !!entitlement.isPro;
+    await refreshEntitlementUi();
   } catch (e) {
     entitlement = {
       isPro: false,
@@ -391,7 +450,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
       authAccessToken = null;
       authUserEmail = null;
-      entitlement = await fetchEntitlement(deviceId);
+      entitlement = getLoggedOutEntitlement();
       isProUser = !!entitlement.isPro;
       updateAuthUi();
       updatePlanUi();
@@ -405,6 +464,22 @@ document.addEventListener('DOMContentLoaded', async () => {
   } else {
     statusMsg.textContent = 'READY';
   }
+  consumeBillingFeedback();
+
+  // Keep popup state fresh after checkout/webhook without manual reload.
+  setInterval(() => {
+    refreshEntitlementUi();
+  }, 4000);
+  window.addEventListener('focus', () => {
+    refreshEntitlementUi();
+    consumeBillingFeedback();
+  });
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+      refreshEntitlementUi();
+      consumeBillingFeedback();
+    }
+  });
 
   function updateAuthUi() {
     const loggedIn = !!authAccessToken;
@@ -417,7 +492,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (!supabase) return null;
     const { data } = await supabase.auth.getSession();
     const session = data?.session || null;
-    if (!session) return null;
+    if (!session) {
+      authAccessToken = null;
+      authUserEmail = null;
+      return null;
+    }
 
     authAccessToken = session.access_token;
     authUserEmail = session.user?.email || '';
@@ -470,6 +549,47 @@ document.addEventListener('DOMContentLoaded', async () => {
     const trialActive = isTrialActive(profile.trial_ends_at);
     const isPro = sub === 'active' || trialActive;
     const planState = sub === 'active' ? 'pro' : (trialActive ? 'trial' : 'free');
+    try {
+      if (!deviceId) deviceId = await getOrCreateDeviceId();
+      const linkPayload = {
+        user_id: session.user.id,
+        subscription_status: sub === 'active' ? 'active' : 'inactive',
+        plan_tier: sub === 'active' ? 'pro' : 'free',
+        trial_ends_at: profile.trial_ends_at || null,
+        cancel_at_period_end: !!profile.cancel_at_period_end,
+        current_period_end: profile.current_period_end || null,
+        updated_at: new Date().toISOString(),
+        last_seen_at: new Date().toISOString(),
+      };
+      let { error: linkError } = await supabase
+        .from('device_links')
+        .upsert({
+          device_id: deviceId,
+          ...linkPayload,
+        }, { onConflict: 'device_id' });
+
+      // If the existing device row belongs to another user and RLS blocks update,
+      // rotate local device_id and create a fresh link for this logged-in account.
+      if (linkError) {
+        const rotatedDeviceId = generateDeviceId();
+        await chrome.storage.local.set({ toll_device_id: rotatedDeviceId });
+        deviceId = rotatedDeviceId;
+        const retry = await supabase
+          .from('device_links')
+          .upsert({
+            device_id: deviceId,
+            ...linkPayload,
+          }, { onConflict: 'device_id' });
+        linkError = retry.error || null;
+      }
+
+      if (linkError) {
+        statusMsg.textContent = `DEVICE LINK SYNC ERROR: ${linkError.message}`;
+        showSavedStatus();
+      }
+    } catch (_) {
+      // Non-fatal: auth entitlement should still work even if device sync fails.
+    }
     return {
       isPro,
       reason: isPro ? 'pro_or_trial' : 'free_auth',
@@ -552,7 +672,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       await chrome.storage.local.set({ adult_block_enabled: false });
       statusMsg.textContent = 'PRO FEATURE: ADULT BLOCK';
       showSavedStatus();
-      openCheckout(deviceId);
+      openCheckout(deviceId, authAccessToken);
       return;
     }
     await chrome.storage.local.set({ adult_block_enabled: e.target.checked });
@@ -576,7 +696,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         radioButtons.forEach(r => { r.checked = parseInt(r.value) === 5; });
         statusMsg.textContent = 'PRO FEATURE: CUSTOM GRACE PERIOD';
         showSavedStatus();
-        openCheckout(deviceId);
+        openCheckout(deviceId, authAccessToken);
         return;
       }
       await chrome.storage.local.set({ lock_duration_min: parseInt(e.target.value) });
@@ -626,7 +746,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       });
       statusMsg.textContent = 'PRO FEATURE: LOCK SCHEDULE';
       showSavedStatus();
-      openCheckout(deviceId);
+      openCheckout(deviceId, authAccessToken);
       return;
     }
     const activeDays = Array.from(dayChecks).filter(c => c.checked).map(c => parseInt(c.dataset.day));
@@ -636,9 +756,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     showSavedStatus();
   }
 
-  function showSavedStatus() {
+  function showSavedStatus(durationMs = 2000) {
     statusMsg.className = 'visible';
-    setTimeout(() => { statusMsg.className = ''; }, 2000);
+    setTimeout(() => { statusMsg.className = ''; }, durationMs);
   }
 
   // 3. Squat Target
@@ -657,7 +777,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       await chrome.storage.local.set({ target_squat_count: 10 });
       statusMsg.textContent = 'PRO FEATURE: CUSTOM REP COUNT';
       showSavedStatus();
-      openCheckout(deviceId);
+      openCheckout(deviceId, authAccessToken);
       return;
     }
     let val = parseInt(e.target.value);
@@ -710,7 +830,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (!isProUser) {
           statusMsg.textContent = 'PRO FEATURE: CUSTOM DOMAINS';
           showSavedStatus();
-          openCheckout(deviceId);
+          openCheckout(deviceId, authAccessToken);
           return;
         }
         const idx = parseInt(e.target.dataset.index);
@@ -726,7 +846,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (!isProUser) {
       statusMsg.textContent = 'PRO FEATURE: CUSTOM DOMAINS';
       showSavedStatus();
-      openCheckout(deviceId);
+      openCheckout(deviceId, authAccessToken);
       return;
     }
     const domain = customInput.value.trim().toLowerCase();
@@ -751,7 +871,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (e?.target) e.target.checked = false;
       statusMsg.textContent = 'FREE LIMIT: UP TO 3 SITES';
       showSavedStatus();
-      openCheckout(deviceId);
+      openCheckout(deviceId, authAccessToken);
       return;
     }
     await chrome.storage.local.set({ blocked_sites: activeSites });

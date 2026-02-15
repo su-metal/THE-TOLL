@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>THE TOLL - Billing Return</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;700&family=Roboto+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css?v=2.18">
+  <style>
+    .return-title {
+      font-size: 1.7rem;
+      margin-bottom: 10px;
+    }
+    .return-message {
+      font-size: 0.95rem;
+      line-height: 1.5;
+      margin-bottom: 18px;
+    }
+    .return-sub {
+      font-size: 0.75rem;
+      opacity: 0.8;
+      margin-bottom: 20px;
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="screen active">
+      <div class="container">
+        <h1 class="return-title">THE TOLL</h1>
+        <p id="subtitle" class="subtitle">BILLING RESULT</p>
+        <p id="message" class="return-message"></p>
+        <p id="sub-message" class="return-sub"></p>
+        <button id="close-btn" class="btn">CLOSE</button>
+      </div>
+    </div>
+  </div>
+  <script src="billing-return.js?v=1.0.0"></script>
+</body>
+</html>

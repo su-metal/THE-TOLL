@@ -20,6 +20,7 @@ By using the Service, you agree to these Terms.
 ## 4. Subscription and Billing
 - Paid plans are billed through Stripe.
 - Pricing, billing interval, and currency are shown during checkout.
+- Plan changes are reflected at the next billing timing.
 - If you choose cancellation at period end, access remains active until the current billing period ends.
 - If you cancel immediately, paid access may end immediately.
 - Refund policy: In principle, fees are non-refundable after payment. Exceptions apply only where refunds are required by applicable law or explicitly approved by us.

@@ -5,8 +5,12 @@
   "description": "Block YouTube until you complete 5 squats on your phone",
   "permissions": [
     "storage",
-    "identity"
+    "identity",
+    "tabs"
   ],
+  "background": {
+    "service_worker": "background.js"
+  },
   "host_permissions": [
     "<all_urls>"
   ],

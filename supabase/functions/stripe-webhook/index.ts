@@ -96,6 +96,44 @@ async function applyEntitlementForCustomer(
   }
 }
 
+function isActiveLikeStatus(status: string): boolean {
+  return ["active", "trialing", "past_due", "unpaid"].includes(status);
+}
+
+async function syncEntitlementByCustomerSubscriptions(customerId: string) {
+  const list = await stripe.subscriptions.list({
+    customer: customerId,
+    status: "all",
+    limit: 100,
+  });
+
+  const activeLike = list.data.filter((sub) => isActiveLikeStatus(String(sub.status || "").toLowerCase()));
+  if (activeLike.length === 0) {
+    await applyEntitlementForCustomer(customerId, "inactive", {
+      cancelAtPeriodEnd: false,
+      currentPeriodEnd: null,
+    });
+    return;
+  }
+
+  let maxPeriodEndIso: string | null = null;
+  let cancelAtPeriodEnd = false;
+  for (const sub of activeLike) {
+    const endIso = toIsoFromUnix(sub.current_period_end);
+    if (endIso && (!maxPeriodEndIso || endIso > maxPeriodEndIso)) {
+      maxPeriodEndIso = endIso;
+    }
+    if (sub.cancel_at_period_end === true) {
+      cancelAtPeriodEnd = true;
+    }
+  }
+
+  await applyEntitlementForCustomer(customerId, "active", {
+    cancelAtPeriodEnd,
+    currentPeriodEnd: maxPeriodEndIso,
+  });
+}
+
 serve(async (req: Request) => {
   const signature = req.headers.get("stripe-signature");
 
@@ -135,12 +173,7 @@ serve(async (req: Request) => {
       const subscription = event.data.object as unknown as Record<string, unknown>;
       const customerId = typeof subscription.customer === "string" ? subscription.customer : "";
       if (!customerId) throw new Error("Missing customer id in customer.subscription.deleted");
-      const periodEnd = resolvePeriodEndIso(subscription);
-
-      await applyEntitlementForCustomer(customerId, "inactive", {
-        cancelAtPeriodEnd: false,
-        currentPeriodEnd: periodEnd,
-      });
+      await syncEntitlementByCustomerSubscriptions(customerId);
 
       console.log(`[THE TOLL] サブスクリプション無効化: ${customerId}`);
     }
@@ -148,16 +181,9 @@ serve(async (req: Request) => {
     if (event.type === "customer.subscription.updated") {
       const subscription = event.data.object as unknown as Record<string, unknown>;
       const customerId = typeof subscription.customer === "string" ? subscription.customer : "";
-      const status = String(subscription.status || "").toLowerCase();
-      const isActiveLike = ["active", "trialing", "past_due"].includes(status);
       if (!customerId) throw new Error("Missing customer id in customer.subscription.updated");
-      const periodEnd = resolvePeriodEndIso(subscription);
-      const cancelAtPeriodEnd = subscription.cancel_at_period_end === true;
-
-      await applyEntitlementForCustomer(customerId, isActiveLike ? "active" : "inactive", {
-        cancelAtPeriodEnd: isActiveLike ? cancelAtPeriodEnd : false,
-        currentPeriodEnd: periodEnd,
-      });
+      const status = String(subscription.status || "").toLowerCase();
+      await syncEntitlementByCustomerSubscriptions(customerId);
 
       console.log(`[THE TOLL] サブスクリプション状態更新: ${customerId} => ${status}`);
     }

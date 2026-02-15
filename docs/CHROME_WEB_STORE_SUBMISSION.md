@@ -1,6 +1,6 @@
 # THE TOLL Chrome Web Store Submission Notes (Draft)
 
-Last updated: 2026-02-13
+Last updated: 2026-02-15
 
 Use this document as the source for Chrome Web Store listing and review answers.
 
@@ -77,3 +77,67 @@ Tip:
 - Ensure no test keys/secrets are exposed in production release package.
 - Confirm OAuth consent screen and privacy links are public.
 - Confirm billing flow and cancellation flow in Stripe mode matching release.
+
+## 10. Release Candidate File Scope (Current)
+Use this as commit scope for the current release candidate.
+
+### A. Extension UI/Auth/Billing flow
+- `chrome-extension/manifest.json`
+- `chrome-extension/popup.html`
+- `chrome-extension/popup.css`
+- `chrome-extension/popup.js`
+- `chrome-extension/background.js` (new)
+
+### B. Smartphone billing pages
+- `smartphone-app/pricing.js`
+- `smartphone-app/billing-return.html` (new)
+- `smartphone-app/billing-return.js` (new)
+
+### C. Supabase Edge Functions
+- `supabase/functions/create-checkout/index.ts`
+- `supabase/functions/create-checkout-device/index.ts`
+- `supabase/functions/stripe-webhook/index.ts`
+
+### D. Documents
+- `docs/ENV_MATRIX.md`
+- `docs/RUNBOOK_BILLING.md`
+- `docs/TERMS_OF_SERVICE.md`
+- `docs/CHROME_WEB_STORE_SUBMISSION.md`
+
+## 11. Final Submission Checklist (Action Order)
+Copy this list into your release task and check in order.
+
+1. Code freeze
+- [ ] Confirm no accidental debug code remains.
+- [ ] `chrome://extensions` -> `Reload` and smoke test popup.
+
+2. Billing E2E (Stripe Test mode)
+- [ ] `FREE -> PRO` works and reflects in popup without manual reload.
+- [ ] `MANAGE SUBSCRIPTION` opens correctly and return closes billing window.
+- [ ] Cancel at period end shows `CANCEL SCHEDULED: PRO UNTIL YYYY-MM-DD`.
+- [ ] Immediate cancellation returns to `PLAN: FREE`.
+- [ ] Verify `profiles` and `device_links` are consistent for tested email.
+
+3. Deployments
+- [ ] Deploy smartphone app (pricing / billing-return changes).
+- [ ] Deploy Supabase functions:
+  - [ ] `create-checkout`
+  - [ ] `create-checkout-device`
+  - [ ] `stripe-webhook`
+
+4. Public URLs for CWS form
+- [ ] Privacy Policy URL is publicly reachable.
+- [ ] Terms of Service URL is publicly reachable.
+- [ ] Support URL is publicly reachable.
+- [ ] Support email set to `info@machinami0924.com`.
+
+5. Chrome Web Store listing
+- [ ] Final description pasted.
+- [ ] Permission justifications pasted.
+- [ ] Single purpose statement pasted.
+- [ ] Screenshots uploaded (popup / lock overlay / smartphone unlock flow).
+
+6. Final submit
+- [ ] Zip/package generated from the exact tested build.
+- [ ] Upload package to CWS.
+- [ ] Submit for review.

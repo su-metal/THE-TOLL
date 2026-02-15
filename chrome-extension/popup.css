@@ -471,6 +471,13 @@ input:disabled {
   flex: 1;
 }
 
+.billing-change-note {
+  margin: 2px 0 8px;
+  font-size: 0.66rem;
+  line-height: 1.4;
+  color: var(--muted);
+}
+
 #status-msg {
   min-height: 16px;
   font-size: 0.7rem;

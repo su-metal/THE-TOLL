@@ -27,11 +27,15 @@ serve(async (req: Request) => {
     const deviceId = typeof body.device_id === "string" ? body.device_id.trim() : "";
     const planRaw = typeof body.plan === "string" ? body.plan.toLowerCase() : "yearly";
     const currencyRaw = typeof body.currency === "string" ? body.currency.toLowerCase() : "usd";
+    const langRaw = typeof body.lang === "string" ? body.lang.toLowerCase() : "en";
+    const sourceRaw = typeof body.source === "string" ? body.source.toLowerCase() : "app";
 
     if (!deviceId) throw new Error("Missing device_id");
 
     const plan = planRaw === "monthly" ? "monthly" : "yearly";
     const currency = currencyRaw === "jpy" ? "jpy" : "usd";
+    const lang = langRaw === "ja" ? "ja" : "en";
+    const source = sourceRaw === "extension" ? "extension" : "app";
     const envKey = `STRIPE_PRICE_ID_${currency.toUpperCase()}_${plan.toUpperCase()}`;
     const priceId = Deno.env.get(envKey);
     if (!priceId) throw new Error(`Missing secret: ${envKey}`);
@@ -76,8 +80,36 @@ serve(async (req: Request) => {
     }
 
     const appUrl = Deno.env.get("PUBLIC_APP_URL") || "https://smartphone-app-pi.vercel.app";
-    const successUrl = `${appUrl}/?checkout=success&device=${encodeURIComponent(deviceId)}`;
-    const cancelUrl = `${appUrl}/?checkout=cancel&device=${encodeURIComponent(deviceId)}`;
+    const returnParams = new URLSearchParams({
+      device: deviceId,
+      lang,
+      source,
+    });
+    const successUrl = `${appUrl}/billing-return.html?${returnParams.toString()}&checkout=success`;
+    const cancelUrl = `${appUrl}/billing-return.html?${returnParams.toString()}&checkout=cancel`;
+
+    const existingSubs = await stripe.subscriptions.list({
+      customer: customerId,
+      status: "all",
+      limit: 20,
+    });
+    const hasActiveLikeSub = existingSubs.data.some((sub) =>
+      ["active", "trialing", "past_due", "unpaid"].includes(sub.status)
+    );
+    if (hasActiveLikeSub) {
+      const portal = await stripe.billingPortal.sessions.create({
+        customer: customerId,
+        return_url: `${appUrl}/billing-return.html?${returnParams.toString()}&portal=return`,
+      });
+      return new Response(JSON.stringify({
+        url: portal.url,
+        mode: "portal",
+        reason: "already_subscribed",
+      }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 200,
+      });
+    }
 
     const session = await stripe.checkout.sessions.create({
       customer: customerId,
