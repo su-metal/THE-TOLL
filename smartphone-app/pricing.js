@@ -54,7 +54,7 @@
       proCol: 'Pro',
       compareRows: [
         { feature: 'Blocked sites', free: 'Up to 5', pro: 'Up to 50' },
-        { feature: 'Grace period', free: '10/20 min presets', pro: 'Custom (10-30 min)' },
+        { feature: 'Grace period', free: 'Choose 10 or 20 min preset', pro: 'Custom (10-30 min)' },
         { feature: 'Exercise mode', free: 'Squat only', pro: 'Choose exercise' },
         { feature: 'Schedule', free: 'Simple templates', pro: 'Advanced control' },
         { feature: 'Adult block', free: 'Available', pro: 'Available' }
@@ -106,7 +106,7 @@
       proCol: 'PRO',
       compareRows: [
         { feature: 'ブロックサイト数', free: '最大5件', pro: '最大50件' },
-        { feature: '解放時間', free: '10分/20分プリセット', pro: '自由設定（10〜30分）' },
+        { feature: '解放時間', free: '10分/20分から選択（プリセット）', pro: '自由設定（10〜30分）' },
         { feature: '運動モード', free: 'スクワット固定', pro: '種目選択可' },
         { feature: 'スケジュール', free: '簡易テンプレ', pro: '詳細設定' },
         { feature: 'アダルトブロック', free: '利用可', pro: '利用可' }
