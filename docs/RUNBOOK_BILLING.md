@@ -9,12 +9,12 @@ Troubleshooting Stripe checkout and subscription status sync in:
 - Supabase `profiles.subscription_status`
 
 ## Expected Flow
-1. User logs in on smartphone app.
-2. User taps `SUBSCRIBE`.
-3. `create-checkout` returns Stripe Checkout URL.
+1. User logs in from extension popup (Google OAuth).
+2. User taps `UPGRADE TO PRO` (pricing window).
+3. `create-checkout` (auth token preferred) returns Stripe Checkout URL.
 4. User completes checkout.
 5. Stripe sends webhook (`checkout.session.completed`).
-6. `profiles.subscription_status` updates to `active`.
+6. `profiles.subscription_status` updates to `active` and extension popup re-syncs plan state.
 
 ## Quick Checks
 
@@ -125,6 +125,8 @@ supabase functions deploy stripe-webhook --no-verify-jwt
 - Extension billing flow now prioritizes logged-in auth token (`create-checkout`) even when `source=extension`, to avoid account mismatch caused by stale `device_links`.
 - If `device_links` upsert fails during login sync, extension rotates local `device_id` and retries link creation.
 - Stripe Link auto-filled email is independent from app account identity; always verify app-side logged-in email and resulting `profiles` row.
+- `billing-return.html` should close itself after success/cancel/portal-return and notify extension to refresh entitlement.
+- `MANAGE SUBSCRIPTION` is opened as a separate window to keep extension popup context intact.
 
 ## Latest Verified (2026-02-15, Test Mode)
 - Symptom addressed:

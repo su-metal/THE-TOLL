@@ -6,55 +6,161 @@
   <title>THE TOLL - Pricing</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;700&family=Roboto+Mono:wght@400;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=2.18">
+  <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;700&family=Noto+Sans+JP:wght@400;700&family=Roboto+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css?v=3.0">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
   <style>
-    .pricing-title {
-      font-size: 1.9rem;
-      margin-bottom: 8px;
+    /* Specific Pricing Overrides */
+    body.pricing-body { overflow: auto; background: var(--pop-white); }
+    #app.pricing-page {
+      min-height: 100dvh;
+      height: auto;
+      overflow: visible;
+      padding: 0;
+      background: var(--pop-white);
     }
-    .pricing-note {
+
+    /* Table Fixes */
+    .scs-spec-list th, .scs-spec-list td {
+      padding: 15px;
+      border-bottom: 1px solid #555;
+      font-size: 0.9rem;
+    }
+    .scs-spec-list td:first-child { font-weight: 700; color: #ccc; }
+    .scs-spec-list td:not(:first-child) { font-family: 'Roboto Mono', monospace; font-weight: 700; }
+
+    .lang-switch {
+      display: inline-flex;
+      gap: 6px;
+      padding: 4px;
+      border: 2px solid var(--pop-black);
+      background: #fff;
+    }
+    .lang-btn {
+      border: 2px solid transparent;
+      background: transparent;
+      color: var(--pop-black);
+      font-family: 'Roboto Mono', monospace;
+      font-weight: 700;
       font-size: 0.8rem;
-      margin: 0 0 18px;
-      opacity: 0.85;
+      line-height: 1;
+      padding: 6px 10px;
+      cursor: pointer;
     }
-    .price-sub {
-      display: block;
-      font-size: 0.78rem;
-      margin-top: 4px;
-      opacity: 0.85;
-    }
-    .status-msg {
-      min-height: 24px;
-      font-size: 0.78rem;
-      margin: 8px 0 14px;
+    .lang-btn.active {
+      border-color: var(--pop-black);
+      background: var(--pop-yellow);
     }
   </style>
 </head>
-<body>
-  <div id="app">
-    <div class="screen active">
-      <div class="container">
-        <h1 class="pricing-title">THE TOLL</h1>
-        <p id="subtitle" class="subtitle">CHOOSE YOUR PLAN</p>
-        <p id="note" class="pricing-note">Select a plan, then continue to secure Stripe checkout.</p>
+<body class="pricing-body">
 
-        <button id="monthly-btn" class="btn secondary">
-          <span id="monthly-label">MONTHLY PLAN</span>
-          <span id="monthly-sub" class="price-sub">Final amount shown at checkout</span>
-        </button>
+  <div id="app" class="pricing-page">
 
-        <button id="yearly-btn" class="btn">
-          <span id="yearly-label">YEARLY PLAN</span>
-          <span id="yearly-sub" class="price-sub">Recommended for lower annual cost</span>
-        </button>
-
-        <p id="status-msg" class="status-msg"></p>
-        <button id="back-btn" class="btn secondary">BACK</button>
+    <!-- Brutalist Hero -->
+    <header class="scs-pricing-hero">
+      <div style="display:flex; justify-content:flex-end; margin-bottom:14px;">
+        <div class="lang-switch" aria-label="Language switch">
+          <button id="lang-en-btn" class="lang-btn" type="button">EN</button>
+          <button id="lang-ja-btn" class="lang-btn" type="button">JA</button>
+        </div>
       </div>
-    </div>
+      <span class="scs-badge" id="subtitle">PAYMENT PROTOCOL // 04</span>
+      <h1 class="scs-pricing-title" id="headline">
+        SELECT<br>
+        YOUR MODE.
+      </h1>
+      <p class="scs-hero-copy" id="subcopy" style="margin: 0 auto;">
+        Choose your plan and continue to secure Stripe checkout.
+      </p>
+
+      <div style="margin-top: 20px; font-family: 'Roboto Mono', monospace; font-size: 0.8rem; color: #666;">
+        <span id="trial-note" style="display:block; margin-bottom:5px;">14-day free trial available.</span>
+        <span id="secure-note" style="display:block; font-weight:700;">Secure checkout powered by Stripe.</span>
+        <span id="currency-chip" style="display:block; margin-top:5px; opacity:0.6;">USD</span>
+      </div>
+    </header>
+
+    <!-- Pricing Grid -->
+    <section>
+      <div class="pricing-grid">
+
+        <!-- Monthly Plan (Standard) -->
+        <button id="monthly-btn" class="scs-price-card" type="button">
+          <span class="plan-name" id="monthly-label">MONTHLY PLAN</span>
+          <span class="plan-price" id="monthly-price">¥490 / MONTH</span>
+          <ul class="plan-features">
+            <li id="monthly-sub" class="active">Flexible billing. Cancel anytime.</li>
+            <li id="monthly-feature-2">Basic Features</li>
+            <li id="monthly-feature-3">Standard Support</li>
+          </ul>
+          <span id="monthly-cta" class="scs-btn-plan" style="background:#999;">START MONTHLY</span>
+        </button>
+
+        <!-- Yearly Plan (Pro/Recommended) -->
+        <button id="yearly-btn" class="scs-price-card recommended" type="button">
+          <div style="position: absolute; top: -15px; right: -15px; background: var(--pop-black); color: var(--pop-yellow); padding: 5px 15px; font-weight: bold; font-family: var(--font-display);" id="yearly-badge">BEST VALUE</div>
+          <span class="plan-name" id="yearly-label">YEARLY PLAN</span>
+          <span class="plan-price" id="yearly-price">¥4,980 / YEAR</span>
+          <ul class="plan-features">
+            <li id="yearly-sub">Equivalent to ¥415/month</li>
+            <li id="yearly-save" class="active">Save 15% vs monthly</li>
+            <li id="yearly-feature-3">Priority Support</li>
+          </ul>
+          <span id="yearly-cta" class="scs-btn-plan">START YEARLY</span>
+        </button>
+
+      </div>
+    </section>
+
+    <!-- Compare Section (Brutalist List) -->
+    <section class="scs-spec-section dark">
+      <div class="scs-hero-container">
+        <div class="scs-header-block white">
+          <h2 class="scs-section-title" id="compare-title">SYSTEM_COMPARE</h2>
+          <span class="scs-section-id">##05</span>
+        </div>
+
+        <table class="scs-spec-list" style="width:100%; border-collapse:collapse; color:white;">
+          <thead>
+            <tr style="border-bottom: 2px solid white; text-align:left;">
+              <th id="feature-col-title" style="padding:15px; font-family:var(--font-display);">FEATURE</th>
+              <th id="free-col-title" style="padding:15px; font-family:var(--font-display); color:#999;">FREE</th>
+              <th id="pro-col-title" style="padding:15px; font-family:var(--font-display); color:var(--pop-yellow);">PRO</th>
+            </tr>
+          </thead>
+          <tbody id="compare-body">
+            <!-- JS will inject rows here -->
+          </tbody>
+        </table>
+
+        <div id="trust-row" style="margin-top:40px; font-family:'Roboto Mono'; font-size:0.8rem; color:#999;"></div>
+
+        <p id="status-msg" class="active" style="margin-top:20px; color:var(--pop-yellow); font-weight:bold; min-height:24px;"></p>
+
+        <button id="back-btn" class="scs-btn-plan" style="margin-top:40px; background:transparent; border:2px solid white; color:white;">BACK</button>
+
+      </div>
+    </section>
+
+    <!-- Global Footer -->
+    <footer class="scs-footer">
+      <div class="scs-footer-marquee">
+         <span id="footer-marquee">INSTALL NOW // INSTALL NOW // INSTALL NOW // INSTALL NOW // INSTALL NOW // INSTALL NOW // INSTALL NOW // INSTALL NOW //</span>
+      </div>
+
+      <div class="scs-footer-container">
+        <h2 class="scs-huge-cta">
+          <span id="footer-cta-line-1">UNLEASH</span><span id="footer-cta-mini-1" class="scs-jp-mini footer">解き放つ、</span><br>
+          <span id="footer-cta-line-2">YOUR</span><br>
+          <span class="stroke-text">FOCUS</span>
+          <span id="footer-cta-mini-2" class="scs-jp-mini footer highlight">集中力。</span>
+        </h2>
+        <p id="footer-copy" class="scs-copyright">© 2026 THE TOLL // SYSTEM ACTIVE // VER 1.0</p>
+      </div>
+    </footer>
+
   </div>
-  <script src="pricing.js?v=1.0.0"></script>
+  <script src="pricing.js?v=2.0.4"></script>
 </body>
 </html>

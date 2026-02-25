@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>THE TOLL Icon Preview</title>
+    <style>
+        body { background: #1a1a1a; color: white; font-family: sans-serif; display: flex; flex-direction: column; align-items: center; gap: 40px; padding: 50px; }
+        .icon-row { display: flex; align-items: flex-end; gap: 30px; border-bottom: 1px solid #444; padding-bottom: 20px; width: 100%; justify-content: center; }
+        .icon-box { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+        img { border: 1px solid #555; background: #333; }
+        .label { font-size: 14px; color: #aaa; }
+    </style>
+</head>
+<body>
+    <h1>THE TOLL - Icon Assets Preview</h1>
+    <div class="icon-row">
+        <div class="icon-box">
+            <img src="icon_source.svg" width="128" height="128">
+            <div class="label">128x128</div>
+        </div>
+        <div class="icon-box">
+            <img src="icon_source.svg" width="48" height="48">
+            <div class="label">48x48</div>
+        </div>
+        <div class="icon-box">
+            <img src="icon_source.svg" width="32" height="32">
+            <div class="label">32x32</div>
+        </div>
+        <div class="icon-box">
+            <img src="icon_source.svg" width="16" height="16">
+            <div class="label">16x16</div>
+        </div>
+    </div>
+    <p>Using SVG directly in manifest.json for crisp rendering at all sizes.</p>
+</body>
+</html>

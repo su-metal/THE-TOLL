@@ -206,6 +206,13 @@ THE TOLL/
 
 ---
 
+## 📚 仕様ドキュメント
+
+- `docs/UNLOCK_POLICY.md`  
+  解除設計の決定事項（プリセット制、Free/Pro差分、Settings Guard、弱体化8時間遅延ルール）
+
+---
+
 ## 🎉 完成！
 
 これで「スクワット5回でYouTubeアンロック」のプロトタイプが動作します！

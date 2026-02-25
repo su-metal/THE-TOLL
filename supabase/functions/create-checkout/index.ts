@@ -17,6 +17,17 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+function inferCurrencyFromGeo(req: Request): "jpy" | "usd" | null {
+  const candidates = [
+    req.headers.get("cf-ipcountry"),
+    req.headers.get("x-vercel-ip-country"),
+    req.headers.get("x-country-code"),
+  ].map((v) => (v || "").trim().toUpperCase());
+  if (candidates.includes("JP")) return "jpy";
+  if (candidates.some((c) => c && c !== "JP")) return "usd";
+  return null;
+}
+
 serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -25,18 +36,14 @@ serve(async (req: Request) => {
   try {
     const body = await req.json().catch(() => ({} as Record<string, unknown>));
     const planRaw = typeof body.plan === "string" ? body.plan.toLowerCase() : "yearly";
-    const currencyRaw = typeof body.currency === "string" ? body.currency.toLowerCase() : "usd";
+    const currencyRaw = typeof body.currency === "string" ? body.currency.toLowerCase() : "";
     const langRaw = typeof body.lang === "string" ? body.lang.toLowerCase() : "en";
     const sourceRaw = typeof body.source === "string" ? body.source.toLowerCase() : "app";
     const deviceRaw = typeof body.device_id === "string" ? body.device_id.trim() : "";
 
     const plan = planRaw === "monthly" ? "monthly" : "yearly";
-    const currency = currencyRaw === "jpy" ? "jpy" : "usd";
     const lang = langRaw === "ja" ? "ja" : "en";
     const source = sourceRaw === "extension" ? "extension" : "app";
-    const envKey = `STRIPE_PRICE_ID_${currency.toUpperCase()}_${plan.toUpperCase()}`;
-    const priceId = Deno.env.get(envKey);
-    if (!priceId) throw new Error(`Missing secret: ${envKey}`);
 
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) throw new Error("No authorization header");
@@ -50,21 +57,55 @@ serve(async (req: Request) => {
     // Get or create Stripe customer
     const { data: profile } = await supabase
       .from("profiles")
-      .select("stripe_customer_id")
+      .select("stripe_customer_id,billing_currency")
       .eq("id", user.id)
       .single();
 
     let customerId = profile?.stripe_customer_id;
+    const lockedCurrency = profile?.billing_currency === "jpy" || profile?.billing_currency === "usd"
+      ? profile.billing_currency
+      : null;
+    const requestedCurrency = currencyRaw === "jpy" || currencyRaw === "usd" ? currencyRaw : null;
+    const geoCurrency = inferCurrencyFromGeo(req);
+    const langCurrency = langRaw === "ja" ? "jpy" : "usd";
+    const currency = lockedCurrency || requestedCurrency || geoCurrency || langCurrency || "usd";
+    const envKey = `STRIPE_PRICE_ID_${currency.toUpperCase()}_${plan.toUpperCase()}`;
+    const legacyEnvKey = `STRIPE_PRICE_ID_${plan.toUpperCase()}`;
+    const priceId = Deno.env.get(envKey) || Deno.env.get(legacyEnvKey);
+    if (!priceId) throw new Error(`Missing secret: ${envKey} (or ${legacyEnvKey})`);
 
-    if (!customerId) {
+    const createStripeCustomer = async () => {
       const customer = await stripe.customers.create({
         email: userEmail,
-        metadata: { supabase_user_id: user.id },
+        metadata: { supabase_user_id: user.id, billing_currency: currency },
       });
       customerId = customer.id;
       await supabase
         .from("profiles")
-        .update({ stripe_customer_id: customerId })
+        .update({ stripe_customer_id: customerId, billing_currency: currency })
+        .eq("id", user.id);
+    };
+
+    if (customerId) {
+      try {
+        await stripe.customers.retrieve(customerId);
+      } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : String(e);
+        if (!msg.includes("No such customer")) throw e;
+        await createStripeCustomer();
+      }
+    } else {
+      await createStripeCustomer();
+    }
+
+    if (!customerId) {
+      throw new Error("Failed to create Stripe customer");
+    }
+
+    if (!lockedCurrency) {
+      await supabase
+        .from("profiles")
+        .update({ billing_currency: currency })
         .eq("id", user.id);
     }
 
@@ -72,7 +113,9 @@ serve(async (req: Request) => {
     const appUrl = /^https?:\/\//.test(origin)
       ? origin
       : (Deno.env.get("PUBLIC_APP_URL") || "https://smartphone-app-pi.vercel.app");
-    const returnBase = `${appUrl}/billing-return.html`;
+    const returnBase = source === "extension"
+      ? `${appUrl}/pricing.html`
+      : `${appUrl}/billing-return.html`;
     const returnParams = new URLSearchParams({
       lang,
       source,
@@ -119,6 +162,7 @@ serve(async (req: Request) => {
         currency,
         supabase_user_id: user.id,
       },
+      allow_promotion_codes: true,
       success_url: successUrl,
       cancel_url: cancelUrl,
     });

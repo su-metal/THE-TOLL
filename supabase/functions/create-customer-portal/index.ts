@@ -37,14 +37,48 @@ serve(async (req: Request) => {
 
     const { data: profile, error: profileError } = await supabase
       .from("profiles")
-      .select("stripe_customer_id")
+      .select("stripe_customer_id,billing_currency")
       .eq("id", user.id)
       .single();
 
     if (profileError) throw new Error(`Profile fetch failed: ${profileError.message}`);
 
-    const customerId = profile?.stripe_customer_id;
-    if (!customerId) throw new Error("No Stripe customer found for this account");
+    let customerId = profile?.stripe_customer_id || "";
+    const billingCurrency = profile?.billing_currency === "jpy" || profile?.billing_currency === "usd"
+      ? profile.billing_currency
+      : null;
+
+    const createStripeCustomer = async () => {
+      const customer = await stripe.customers.create({
+        email: user.email || undefined,
+        metadata: {
+          supabase_user_id: user.id,
+          billing_currency: billingCurrency || "usd",
+        },
+      });
+      customerId = customer.id;
+      const { error: updateError } = await supabase
+        .from("profiles")
+        .update({ stripe_customer_id: customerId })
+        .eq("id", user.id);
+      if (updateError) {
+        throw new Error(`Profile update failed: ${updateError.message}`);
+      }
+    };
+
+    if (customerId) {
+      try {
+        await stripe.customers.retrieve(customerId);
+      } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : String(e);
+        if (!msg.includes("No such customer")) throw e;
+        await createStripeCustomer();
+      }
+    } else {
+      await createStripeCustomer();
+    }
+
+    if (!customerId) throw new Error("Failed to create Stripe customer");
 
     const requestedReturnUrl = typeof body.return_url === "string" ? body.return_url.trim() : "";
     const origin = req.headers.get("origin") || "";

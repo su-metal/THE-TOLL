@@ -65,4 +65,4 @@ We do not sell personal data.
 
 ## 11. Contact
 - Operator name: THE TOLL Operations Office
-- Contact email: privacy@example.com
+- Contact email: info@machinami0924.com

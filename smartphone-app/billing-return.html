@@ -2,41 +2,136 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>THE TOLL - Billing Return</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;700&family=Roboto+Mono:wght@400;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=2.18">
+  <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;700&family=Noto+Sans+JP:wght@400;700&family=Roboto+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css?v=3.0">
   <style>
-    .return-title {
-      font-size: 1.7rem;
-      margin-bottom: 10px;
+    body.billing-return-body {
+      overflow: auto;
+      background: var(--pop-white);
+    }
+    #app.billing-return-page {
+      min-height: 100dvh;
+      height: auto;
+      background: var(--pop-white);
+    }
+    .billing-hero {
+      padding: 60px 20px 36px;
+      background: var(--pop-white);
+      border-bottom: 4px solid var(--pop-black);
+      text-align: center;
+    }
+    .billing-title {
+      font-family: var(--font-display);
+      font-size: clamp(2.2rem, 8.5vw, 4.8rem);
+      line-height: 0.9;
+      margin: 0 0 14px;
+      color: var(--pop-black);
+    }
+    .billing-subtitle {
+      margin: 0;
+      font-family: 'Roboto Mono', monospace;
+      font-size: 0.92rem;
+      font-weight: 700;
+      color: #333;
+    }
+    .billing-result-section {
+      padding: 40px 20px 56px;
+      background: var(--pop-black);
+      color: var(--pop-white);
+      border-bottom: 4px solid var(--pop-black);
+    }
+    .billing-shell {
+      max-width: 760px;
+      margin: 0 auto;
+    }
+    .billing-panel {
+      text-align: center;
+      margin-top: 14px;
     }
     .return-message {
-      font-size: 0.95rem;
-      line-height: 1.5;
-      margin-bottom: 18px;
+      font-family: var(--font-display);
+      font-size: clamp(2rem, 7vw, 3.6rem);
+      line-height: 0.95;
+      margin: 8px 0 14px;
+      color: var(--pop-black);
     }
     .return-sub {
-      font-size: 0.75rem;
-      opacity: 0.8;
-      margin-bottom: 20px;
+      font-family: 'Roboto Mono', monospace;
+      font-size: 0.95rem;
+      color: #333;
+      line-height: 1.55;
+      margin: 0 0 24px;
+      border-top: 2px dashed var(--pop-black);
+      border-bottom: 2px dashed var(--pop-black);
+      padding: 14px 0;
+    }
+    #close-btn {
+      max-width: 340px;
+      margin: 0 auto;
+    }
+    .billing-footer {
+      background: var(--pop-yellow);
+      border-top: 4px solid var(--pop-black);
+      overflow: hidden;
+      text-align: center;
+    }
+    .billing-footer-marquee {
+      background: var(--pop-black);
+      color: var(--pop-white);
+      font-family: var(--font-display);
+      font-size: 1.25rem;
+      padding: 10px 0;
+      white-space: nowrap;
+    }
+    .billing-footer-marquee span {
+      display: inline-block;
+      animation: marquee 15s linear infinite;
+    }
+    .billing-footer-copy {
+      margin: 0;
+      padding: 18px 14px 26px;
+      font-family: 'Roboto Mono', monospace;
+      font-size: 0.78rem;
+      font-weight: 700;
+      color: #222;
+      opacity: 0.75;
     }
   </style>
 </head>
-<body>
-  <div id="app">
-    <div class="screen active">
-      <div class="container">
-        <h1 class="return-title">THE TOLL</h1>
-        <p id="subtitle" class="subtitle">BILLING RESULT</p>
-        <p id="message" class="return-message"></p>
-        <p id="sub-message" class="return-sub"></p>
-        <button id="close-btn" class="btn">CLOSE</button>
+<body class="billing-return-body">
+  <div id="app" class="billing-return-page">
+    <header class="billing-hero">
+      <span class="scs-badge">TRANSACTION LOG // 00</span>
+      <h1 class="billing-title">SYSTEM<br>UPDATE</h1>
+      <p id="subtitle" class="billing-subtitle">BILLING RESULT</p>
+    </header>
+
+    <section class="billing-result-section">
+      <div class="billing-shell">
+        <div class="scs-header-block white">
+          <h2 id="result-section-title" class="scs-section-title">RESULT</h2>
+          <span class="scs-section-id">##06</span>
+        </div>
+        <div class="scs-panel billing-panel">
+          <span class="scs-panel-header">STATUS</span>
+          <p id="message" class="return-message">PROCESSING...</p>
+          <p id="sub-message" class="return-sub">Please wait while we verify the transaction.</p>
+          <button id="close-btn" class="scs-btn-plan scs-btn-black">CLOSE WINDOW</button>
+        </div>
       </div>
-    </div>
+    </section>
+
+    <footer class="billing-footer">
+      <div class="billing-footer-marquee">
+        <span id="footer-marquee">PAY THE TOLL // STAY IN FOCUS // PAY THE TOLL // STAY IN FOCUS // PAY THE TOLL // STAY IN FOCUS //</span>
+      </div>
+      <p id="footer-copy" class="billing-footer-copy">© 2026 THE TOLL // SYSTEM ACTIVE // VER 1.0</p>
+    </footer>
   </div>
-  <script src="billing-return.js?v=1.0.0"></script>
+  <script src="billing-return.js?v=1.0.2"></script>
 </body>
 </html>

@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html class="settings-page">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body class="settings-page">
+  <div class="popup-container">
+    <div class="header">
+      <div class="header-top-row">
+        <p id="plan-label" class="plan-label">PLAN: CHECKING...</p>
+        <div class="lang-switch" aria-label="Language switch">
+          <button id="lang-en-btn" class="lang-btn" type="button">EN</button>
+          <button id="lang-ja-btn" class="lang-btn" type="button">JA</button>
+        </div>
+      </div>
+      <h1>THE TOLL</h1>
+      <p class="subtitle" data-i18n="subtitle">LOCK DURATION SETTINGS</p>
+      <div class="auth-actions">
+        <button id="auth-login-btn" class="add-btn" data-i18n="authLogin">LOGIN WITH GOOGLE</button>
+        <button id="auth-logout-btn" class="add-btn hidden" data-i18n="authLogout">LOGOUT</button>
+      </div>
+      <p id="auth-user-label" class="account-state"></p>
+      <p id="plan-detail-label" class="plan-detail hidden"></p>
+      <div class="primary-cta-section">
+        <div class="footer-actions">
+          <button id="manage-subscription-btn" class="add-btn hidden" data-i18n="manageSubscription">MANAGE SUBSCRIPTION</button>
+          <button id="upgrade-btn" class="add-btn" data-i18n="upgradeToPro">UPGRADE TO PRO</button>
+        </div>
+        <p id="trial-note" class="trial-note" data-i18n="trialNote">
+          New accounts get a 14-day free trial. Billing starts after trial.
+        </p>
+        <p id="upgrade-login-note" class="upgrade-login-note">Google login is required to purchase.</p>
+        <p id="billing-change-note" class="billing-change-note">
+          Plan changes take effect at the next billing cycle.
+        </p>
+      </div>
+    </div>
+
+    <!-- Incognito Warning -->
+    <div id="incognito-warning" class="incognito-banner hidden">
+      <div class="banner-content">
+        <span class="banner-icon">⚠️</span>
+        <div class="banner-text">
+          <p class="banner-title" data-i18n="incognitoTitle">INCOGNITO NOT PROTECTED</p>
+          <p class="banner-desc" data-i18n="incognitoDesc">Enable in settings to prevent bypass</p>
+        </div>
+      </div>
+      <button id="fix-incognito-btn" class="fix-btn" data-i18n="fixBtn">FIX</button>
+    </div>
+    
+    <div id="settings-content" class="locked">
+      <div class="settings-group">
+        <label class="group-label" data-i18n="unlockPreset">UNLOCK PRESET</label>
+        <div id="unlock-preset-options" class="preset-options">
+          <label class="preset-option">
+            <input type="radio" name="unlock-preset" value="light">
+            <span class="preset-card">
+              <span class="preset-name">LIGHT</span>
+              <span class="preset-detail">10 REPS / 10 MIN</span>
+            </span>
+          </label>
+          <label class="preset-option">
+            <input type="radio" name="unlock-preset" value="standard">
+            <span class="preset-card">
+              <span class="preset-name">STANDARD</span>
+              <span class="preset-detail">20 REPS / 20 MIN</span>
+            </span>
+          </label>
+          <label class="preset-option">
+            <input type="radio" name="unlock-preset" value="hard">
+            <span class="preset-card">
+              <span class="preset-name">HARD</span>
+              <span class="preset-detail">40 REPS / 40 MIN</span>
+            </span>
+          </label>
+          <label class="preset-option">
+            <input type="radio" name="unlock-preset" value="extreme">
+            <span class="preset-card">
+              <span class="preset-name">EXTREME</span>
+              <span class="preset-detail">60 REPS / 60 MIN</span>
+            </span>
+          </label>
+        </div>
+        <p id="unlock-preset-note" class="schedule-lock-note" data-i18n="presetCooldownNote">
+          Weaker changes apply after 8 hours. Stronger changes apply immediately.
+        </p>
+        <div id="unlock-policy-state" class="policy-state">
+          <p id="unlock-active-policy" class="policy-line"></p>
+        </div>
+      </div>
+      
+      <div class="settings-group">
+        <div class="group-header-row">
+          <label class="group-label" data-i18n="blockedSites">BLOCKED SITES</label>
+          <label class="site-toggle-label">
+            <input type="checkbox" id="adult-block-toggle">
+            <span class="site-toggle-text" data-i18n="adultBlock">ADULT BLOCK</span>
+          </label>
+        </div>
+        <div class="blocked-sites-grid">
+          <label class="site-check"><input type="checkbox" name="blocked-site" value="youtube.com" checked><span>YouTube</span></label>
+          <label class="site-check"><input type="checkbox" name="blocked-site" value="twitter.com,x.com"><span>X (Twitter)</span></label>
+          <label class="site-check"><input type="checkbox" name="blocked-site" value="instagram.com"><span>Instagram</span></label>
+          <label class="site-check"><input type="checkbox" name="blocked-site" value="tiktok.com"><span>TikTok</span></label>
+          <label class="site-check"><input type="checkbox" name="blocked-site" value="reddit.com"><span>Reddit</span></label>
+          <label class="site-check"><input type="checkbox" name="blocked-site" value="facebook.com"><span>Facebook</span></label>
+          <label class="site-check"><input type="checkbox" name="blocked-site" value="netflix.com"><span>Netflix</span></label>
+        </div>
+        
+        <div class="custom-sites-section">
+          <div class="input-row">
+            <input type="text" id="custom-domain-input" placeholder="e.g. news.google.com" data-i18n-placeholder="customDomainPlaceholder">
+            <button id="add-custom-domain-btn" class="add-btn" data-i18n="addBtn">ADD</button>
+          </div>
+          <div id="custom-sites-list" class="sites-list">
+            <!-- Custom domains will be added here -->
+          </div>
+        </div>
+      </div>
+
+      <div class="settings-group">
+        <label class="group-label" data-i18n="lockSchedule">LOCK SCHEDULE</label>
+        <div id="free-schedule-mode" class="schedule-mode hidden">
+          <button type="button" class="mode-btn" data-free-schedule="weekdays" data-i18n="weekdays">WEEKDAYS</button>
+          <button type="button" class="mode-btn" data-free-schedule="everyday" data-i18n="everyday">EVERYDAY</button>
+        </div>
+        <div id="pro-schedule-mode" class="schedule-mode hidden">
+          <button type="button" class="mode-btn" data-pro-schedule="a" data-i18n="presetA">PRESET A</button>
+          <button type="button" class="mode-btn" data-pro-schedule="b" data-i18n="presetB">PRESET B</button>
+        </div>
+        <div class="schedule-days">
+          <label class="day-check"><input type="checkbox" data-day="1" checked><span>M</span></label>
+          <label class="day-check"><input type="checkbox" data-day="2" checked><span>T</span></label>
+          <label class="day-check"><input type="checkbox" data-day="3" checked><span>W</span></label>
+          <label class="day-check"><input type="checkbox" data-day="4" checked><span>T</span></label>
+          <label class="day-check"><input type="checkbox" data-day="5" checked><span>F</span></label>
+          <label class="day-check"><input type="checkbox" data-day="6"><span>S</span></label>
+          <label class="day-check"><input type="checkbox" data-day="0"><span>S</span></label>
+        </div>
+        <div class="schedule-time">
+          <div class="time-input">
+            <span class="time-label" data-i18n="start">START</span>
+            <input type="time" id="start-time" value="09:00">
+          </div>
+          <div class="time-separator" data-i18n="to">TO</div>
+          <div class="time-input">
+            <span class="time-label" data-i18n="end">END</span>
+            <input type="time" id="end-time" value="18:00">
+          </div>
+        </div>
+        <p id="schedule-lock-note" class="schedule-lock-note hidden" data-i18n="scheduleLockNote">
+          FREE: Switch schedule with WEEKDAYS / EVERYDAY. Day and time are locked.
+        </p>
+      </div>
+      
+      <div class="footer">
+        <button id="apply-current-lock-btn" class="add-btn" data-i18n="applyCurrentLock">APPLY TO CURRENT LOCK</button>
+        <p id="status-msg">SETTINGS SAVED</p>
+        <p id="settings-unlock-remaining" class="unlock-remaining hidden"></p>
+        <button id="force-relock-btn" class="text-btn danger-text" data-i18n="forceRelock">FORCE RELOCK (TESTING)</button>
+      </div>
+    </div>
+
+    <div id="view-only-bar" class="view-only-bar hidden">
+      <p data-i18n="viewOnlyBar">VIEW ONLY MODE: SETTINGS CANNOT BE CHANGED</p>
+      <button id="return-to-mission-btn" class="add-btn" data-i18n="returnToMission">RETURN TO MISSION</button>
+    </div>
+
+    <div id="lock-overlay">
+      <div class="lock-content">
+        <div class="lock-icon">🔒</div>
+        <h2 data-i18n="settingsLockedTitle">SETTINGS LOCKED</h2>
+        <p data-i18n="settingsLockedDesc">Complete 15 reps to unlock settings for 15 minutes.</p>
+        
+        <button id="unlock-settings-btn" class="volt-btn" data-i18n="startMission">START MISSION</button>
+        
+        <div id="settings-qr-section" class="hidden">
+          <div id="settings-qrcode"></div>
+          <p class="qr-hint" data-i18n="scanWithPhone">SCAN WITH PHONE</p>
+          <p id="settings-poll-status" data-i18n="waitingConnection">Waiting for connection...</p>
+        </div>
+        <button id="view-only-btn" class="text-btn" data-i18n="viewOnlyNoEdit">VIEW ONLY (NO EDIT)</button>
+      </div>
+    </div>
+  </div>
+  <div id="toast-msg" class="toast-msg hidden" aria-live="polite"></div>
+  <script src="lib/qrcode.min.js"></script>
+  <script src="lib/supabase.min.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>

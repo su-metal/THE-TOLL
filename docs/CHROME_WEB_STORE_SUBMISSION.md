@@ -38,9 +38,9 @@ Core capabilities:
 - "THE TOLL enforces user-configured website locks and unlocks them only after exercise completion through linked smartphone verification."
 
 ## 5. Privacy Links
-- Privacy Policy URL: `https://example.com/privacy`
-- Terms of Service URL: `https://example.com/terms`
-- Support URL: `https://example.com/support`
+- Privacy Policy URL: `https://machinami0924.com/privacy`
+- Terms of Service URL: `https://machinami0924.com/terms`
+- Support URL: `https://machinami0924.com/support`
 
 Tip:
 - Host `docs/PRIVACY_POLICY.md`, `docs/TERMS_OF_SERVICE.md`, and `docs/SUPPORT.md` on a public URL (for example GitHub Pages or project website) and paste final URLs here.
@@ -59,9 +59,10 @@ Tip:
   1. Install extension and open popup.
   2. Log in with Google.
   3. Add/select blocked site and confirm lock overlay appears.
-  4. Open smartphone app via QR/session and complete unlock flow.
+  4. Open smartphone app via QR/session and complete unlock flow (smartphone login is not required in the primary flow).
   5. Confirm locked site unlocks.
-  6. (Optional) Open subscription management from popup.
+  6. (Optional) Open upgrade flow and confirm Stripe checkout opens in a separate window and returns to extension state.
+  7. (Optional) Open subscription management from popup.
 - Known expected console noise:
   - Some website-origin warnings (for example YouTube-side warnings) may appear and are unrelated to extension logic.
 
@@ -69,8 +70,8 @@ Tip:
 - Icon set (16/32/48/128): `READY (confirm final package before upload)`
 - Screenshots for store listing: `Prepare at least 3 screenshots (popup settings / lock overlay / smartphone unlock flow)`
 - Promotional tile(s): `Optional (prepare if marketing use is planned)`
-- Support URL: `https://example.com/support`
-- Developer contact email: `support@example.com`
+- Support URL: `https://machinami0924.com/support`
+- Developer contact email: `info@machinami0924.com`
 
 ## 9. Pre-Submission Final Checks
 - Reload extension and validate current build behavior.

@@ -1,0 +1,387 @@
+#toll-overlay {
+  --pop-yellow: #FFD400;
+  --pop-pink: #FF5BC5;
+  --pop-blue: #60E1FF;
+  --pop-black: #000000;
+  --pop-white: #FFFFFF;
+  --font-display: 'Oswald', 'Arial Black', sans-serif;
+  --font-mono: 'Roboto Mono', monospace;
+
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  /* background-color: var(--pop-black); */
+  background-color: #1a1a1a;
+  background-image: 
+    linear-gradient(rgba(255,255,255,0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.05) 1px, transparent 1px);
+  background-size: 50px 50px;
+  z-index: 2147483647;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-family: 'Noto Sans JP', sans-serif;
+  color: var(--pop-black);
+  overflow: hidden;
+  padding: 10px; /* Space around the container */
+}
+
+#toll-overlay .scs-hero-container {
+  width: min(95vw, 1000px);
+  max-height: 95vh;
+  background: var(--pop-white);
+  border: 6px solid var(--pop-black);
+  box-shadow: 20px 20px 0px var(--pop-black);
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  overflow: hidden; /* Back to hidden for PC crispness */
+}
+
+/* Add a specific scrollable area if needed, but only for mobile or small height */
+@media (max-height: 800px) {
+  #toll-overlay .scs-hero-container {
+    overflow-y: auto;
+  }
+}
+
+/* Marquee Styles */
+.toll-marquee-container {
+  background: var(--pop-black);
+  color: var(--pop-yellow);
+  padding: 10px 0;
+  overflow: hidden;
+  white-space: nowrap;
+  font-family: var(--font-display);
+  font-size: 1.4rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  border-bottom: 4px solid var(--pop-black);
+}
+
+.toll-marquee-container.bottom {
+  border-bottom: none;
+  border-top: 4px solid var(--pop-black);
+}
+
+.toll-marquee-container .scs-marquee {
+  display: inline-block;
+  white-space: nowrap;
+  animation: toll-marquee 30s linear infinite;
+  padding-left: 100%;
+}
+
+@keyframes toll-marquee {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-100%); }
+}
+
+/* Header Section */
+.toll-header {
+  padding: 40px 50px;
+  background: var(--pop-white);
+  border-bottom: 6px solid var(--pop-black);
+  text-align: left;
+}
+
+.scs-badge {
+  display: inline-block;
+  background: var(--pop-pink);
+  color: var(--pop-white);
+  font-family: var(--font-mono);
+  font-size: 0.9rem;
+  padding: 6px 15px;
+  margin-bottom: 15px;
+  font-weight: 900;
+  border: 2px solid var(--pop-black);
+}
+
+.scs-hero-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: clamp(3rem, 7vw, 6rem);
+  line-height: 0.85;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: -3px;
+  color: var(--pop-black);
+}
+
+.scs-hero-title span.scs-highlight {
+  display: block;
+  background: var(--pop-yellow);
+  width: fit-content;
+  padding: 5px 15px;
+  font-style: italic;
+  transform: skew(-10deg);
+  border: 4px solid var(--pop-black);
+  margin-top: 10px;
+}
+
+/* Stat Bar */
+.scs-stat-bar {
+  display: flex;
+  border-bottom: 6px solid var(--pop-black);
+  background: #f0f0f0;
+}
+
+.scs-stat-item {
+  flex: 1;
+  padding: 20px 25px;
+  border-right: 6px solid var(--pop-black);
+  display: flex;
+  flex-direction: column;
+  text-align: left;
+}
+
+.scs-stat-item:last-child {
+  border-right: none;
+}
+
+.scs-stat-label {
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  color: #555;
+  margin-bottom: 5px;
+  font-weight: 900;
+}
+
+.scs-stat-val {
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  font-weight: 900;
+  color: var(--pop-black);
+}
+
+/* Grid Content */
+.scs-grid {
+  display: grid;
+  grid-template-columns: 55% 45%; /* QR side is larger */
+  flex: 1;
+  min-height: 0;
+}
+
+.scs-cell {
+  padding: 40px 50px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: min-content; /* Ensure cells don't shrink too much */
+}
+
+.scs-cell.content {
+  background: var(--pop-white);
+  align-items: center;
+  border-right: 6px solid var(--pop-black); /* Move border to right side of QR cell */
+}
+
+.scs-cell.statement {
+  background: var(--pop-blue);
+  text-align: left;
+}
+
+.scs-title {
+  font-family: var(--font-display);
+  font-size: 1.8rem;
+  margin: 0 0 25px 0;
+  color: var(--pop-white);
+  background: var(--pop-black);
+  padding: 5px 15px;
+  text-transform: uppercase;
+}
+
+.scs-big-text {
+  font-family: var(--font-display);
+  font-size: clamp(4rem, 10vw, 9rem);
+  line-height: 0.8;
+  margin: 0 0 25px 0;
+  font-weight: 900;
+  -webkit-text-stroke: 2px var(--pop-black);
+  color: var(--pop-white);
+}
+
+/* QR and Session */
+.toll-qr-container {
+  margin-bottom: 30px;
+  padding: 20px;
+  background: var(--pop-white);
+  border: 6px solid var(--pop-black);
+  box-shadow: 12px 12px 0px var(--pop-black);
+  width: fit-content;
+}
+
+#toll-qrcode {
+  width: 220px;
+  height: 220px;
+}
+
+.scs-tech-note {
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  margin-top: 30px;
+  background: rgba(0,0,0,0.05);
+  padding: 15px;
+  border-left: 8px solid var(--pop-pink);
+  text-align: left;
+  line-height: 1.4;
+}
+
+/* Small JP Captions from Landing Page */
+.scs-jp-mini {
+  display: block;
+  font-family: 'Noto Sans JP', sans-serif;
+  font-size: 1rem;
+  letter-spacing: 0;
+  line-height: 1.5;
+  color: #888;
+  font-weight: 700;
+  margin-top: 5px;
+  text-transform: none;
+}
+
+.scs-jp-mini.dark {
+  display: inline-block;
+  color: var(--pop-black);
+  margin: 0;
+  margin-left: 10px;
+  font-size: 0.8em;
+}
+
+.scs-jp-mini.white {
+  color: var(--pop-white);
+  opacity: 0.8;
+}
+
+/* Status messages */
+.toll-status {
+  padding: 15px 30px;
+  font-family: var(--font-mono);
+  font-size: 1rem;
+  font-weight: 900;
+  background: var(--pop-black);
+  color: var(--pop-white);
+  text-transform: uppercase;
+  border: 4px solid var(--pop-black);
+}
+
+@keyframes pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+}
+
+.toll-status.unlocking {
+  background: var(--pop-pink);
+  animation: pulse 0.5s infinite;
+}
+
+#toll-overlay.unlocking {
+  animation: pop-out 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+}
+
+@keyframes pop-out {
+  0% { transform: scale(1); opacity: 1; }
+  100% { transform: scale(0.4); opacity: 0; }
+}
+
+.toll-countdown-hud {
+  position: fixed;
+  top: 40px;
+  right: 40px;
+  padding: 20px 25px;
+  background: var(--pop-white);
+  border: 6px solid var(--pop-black);
+  box-shadow: 10px 10px 0px var(--pop-black);
+  font-family: var(--font-display);
+  z-index: 2147483646;
+  transform: rotate(3deg);
+}
+
+.toll-countdown-hud .hud-label {
+  font-size: 0.8rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  background: var(--pop-black);
+  color: var(--pop-white);
+  padding: 4px 10px;
+  margin-bottom: 8px;
+  display: inline-block;
+}
+
+.toll-countdown-hud .hud-timer {
+  font-size: 3rem;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.toll-countdown-hud.warning {
+  background: var(--pop-pink);
+  color: var(--pop-white);
+  animation: pulse 0.5s infinite;
+}
+
+/* Responsive Adjustments */
+@media (max-width: 768px) {
+  #toll-overlay .scs-hero-container {
+    width: 98vw;
+    margin: 1vw;
+    box-shadow: 10px 10px 0px var(--pop-black);
+  }
+
+  .scs-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .scs-cell.statement {
+    border-right: none;
+    border-bottom: 6px solid var(--pop-black);
+  }
+
+  .scs-big-text {
+    font-size: clamp(3rem, 15vw, 6rem);
+  }
+}
+
+@media (max-width: 480px) {
+  .toll-header {
+    padding: 25px 20px;
+  }
+
+  .scs-stat-bar {
+    flex-wrap: wrap;
+  }
+
+  .scs-stat-item {
+    flex: 1 1 50%;
+    padding: 10px 15px;
+  }
+
+  .scs-stat-item:nth-child(even) {
+    border-right: none;
+  }
+
+  .scs-stat-item:nth-child(n+3) {
+    border-top: 6px solid var(--pop-black);
+    border-bottom: none;
+  }
+
+  .scs-cell {
+    padding: 30px 20px;
+  }
+
+  .toll-qr-container {
+    padding: 10px;
+    box-shadow: 6px 6px 0px var(--pop-black);
+  }
+
+  #toll-qrcode {
+    width: 150px !important;
+    height: 150px !important;
+  }
+  
+  #toll-qrcode canvas, #toll-qrcode img {
+    width: 150px !important;
+    height: 150px !important;
+  }
+}
+

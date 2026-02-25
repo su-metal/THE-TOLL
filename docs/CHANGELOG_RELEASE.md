@@ -1,12 +1,13 @@
 # THE TOLL Release Changelog
 
-Last updated: 2026-02-13
+Last updated: 2026-02-15
 
 ## Summary
 - Smartphone app moved from local/ngrok workflow to fixed hosted URL (`https://smartphone-app-pi.vercel.app`).
 - Supabase security tightened for `squat_sessions` and `unlock_session`.
 - Billing flow stabilized (Stripe + Supabase Edge Functions).
-- Auth flow switched to Google OAuth-first on smartphone app.
+- Auth flow stabilized around extension Google OAuth + smartphone session-start flow.
+- Lock overlay visuals were simplified and aligned with landing-page design tone.
 
 ## Changes Completed
 
@@ -50,8 +51,9 @@ Last updated: 2026-02-13
   - popup shows `CANCEL SCHEDULED: PRO UNTIL YYYY-MM-DD`
 
 ### 5) Auth Flow
-- Email/password auth UI removed from smartphone top page.
-- Google OAuth login introduced (`CONTINUE WITH GOOGLE`).
+- Extension popup Google OAuth is the primary authentication entry.
+- Smartphone unlock flow is session-first (QR / session ID), with membership resolved via linked device context.
+- Pricing/portal return uses `billing-return.html` to trigger extension-side state resync.
 
 ### 6) Subscription Management
 - Added `create-customer-portal` function support for explicit `return_url`.

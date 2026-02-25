@@ -1,0 +1,33 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="premium_grad" x1="0" y1="0" x2="1024" y2="1024" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#7C2AED"/>
+      <stop offset="1" stop-color="#5B21B6"/>
+    </linearGradient>
+    <clipPath id="round_corners">
+      <rect width="1024" height="1024" rx="220" fill="white"/>
+    </clipPath>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1024" height="1024" rx="220" fill="url(#premium_grad)"/>
+  
+  <g clip-path="url(#round_corners)">
+    <!-- Abstract "T" / Toll Gate Motion -->
+    <!-- Vertical Pillar -->
+    <rect x="442" y="440" width="140" height="380" rx="20" fill="white"/>
+    
+    <!-- Dynamic horizontal bar (Angled to suggest opening/closing) -->
+    <g transform="rotate(-5 512 380)">
+      <rect x="212" y="320" width="600" height="140" rx="30" fill="white"/>
+      
+      <!-- Subtle negative space "stripes" that add design flair -->
+      <rect x="260" y="320" width="40" height="140" fill="#7C2AED" fill-opacity="0.3"/>
+      <rect x="340" y="320" width="40" height="140" fill="#7C2AED" fill-opacity="0.3"/>
+      
+      <!-- The "Action" Accent (Toll Bar Handle/Pivot) -->
+      <circle cx="512" cy="390" r="45" fill="#FFD700"/>
+      <circle cx="512" cy="390" r="15" fill="#1a1a1a"/>
+    </g>
+  </g>
+</svg>

@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>THE TOLL | 料金プラン (Pricing)</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;700&family=Noto+Sans+JP:wght@400;700&family=Roboto+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'Noto Sans JP', 'Roboto Mono', monospace; }
+    h1, h2, h3 { font-family: 'Oswald', 'Noto Sans JP', sans-serif; }
+    
+    /* Specific Pricing Page Styles */
+    .scs-pricing-hero {
+      padding: 120px 20px 60px;
+      background: var(--pop-white);
+      border-bottom: 4px solid var(--pop-black);
+      text-align: center;
+    }
+    
+    .scs-pricing-title {
+      font-size: clamp(3rem, 10vw, 6rem);
+      font-family: var(--font-display);
+      line-height: 0.9;
+      margin-bottom: 20px;
+    }
+    
+    .pricing-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 40px;
+      max-width: 1000px;
+      margin: 80px auto;
+      padding: 0 20px;
+    }
+
+    /* Free Plan (Stripped Down) */
+    .plan-card {
+      border: 4px solid var(--pop-black);
+      padding: 40px;
+      background: #f0f0f0;
+      position: relative;
+    }
+    
+    .plan-card.pro {
+      background: var(--pop-white);
+      box-shadow: 15px 15px 0px var(--pop-yellow);
+      transform: scale(1.05);
+      z-index: 10;
+    }
+
+    .plan-name {
+      font-family: var(--font-display);
+      font-size: 2.5rem;
+      margin-bottom: 10px;
+      display: block;
+    }
+    
+    .plan-price {
+      font-family: 'Roboto Mono', monospace;
+      font-size: 1.5rem;
+      font-weight: 700;
+      border-bottom: 2px solid var(--pop-black);
+      padding-bottom: 20px;
+      margin-bottom: 20px;
+      display: block;
+    }
+    
+    .plan-features {
+      list-style: none;
+      padding: 0;
+      margin-bottom: 40px;
+    }
+    
+    .plan-features li {
+      padding: 10px 0;
+      border-bottom: 1px dashed #999;
+      font-weight: 700;
+      color: #555;
+    }
+    
+    .plan-features li.active {
+      color: var(--pop-black);
+      font-weight: 900;
+    }
+    
+    .plan-features li::before {
+      content: ">> ";
+      color: var(--pop-black);
+    }
+    
+    .scs-btn-plan {
+      display: block;
+      width: 100%;
+      padding: 15px;
+      background: var(--pop-black);
+      color: var(--pop-white);
+      text-align: center;
+      font-family: var(--font-display);
+      font-size: 1.5rem;
+      text-decoration: none;
+      transition: all 0.2s;
+    }
+    
+    .scs-btn-plan:hover {
+      background: var(--pop-yellow);
+      color: var(--pop-black);
+    }
+
+    @media (max-width: 768px) {
+      .pricing-grid {
+        grid-template-columns: 1fr;
+        gap: 60px;
+      }
+      .plan-card.pro {
+        transform: none;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="grid-overlay"></div>
+  <div class="vignette"></div>
+
+  <nav class="lang-nav">
+    <a href="index_ja.html" class="lang-link" id="back-to-top-link">BACK TO TOP</a>
+    <span class="divider">|</span>
+    <button id="lang-en-btn" class="lang-link" type="button">EN</button>
+    <span class="divider">|</span>
+    <button id="lang-ja-btn" class="lang-link" type="button">JA</button>
+  </nav>
+
+  <!-- Hero -->
+  <header class="scs-pricing-hero">
+    <span class="scs-badge" id="badge">PAYMENT PROTOCOL // 04</span>
+    <h1 class="scs-pricing-title">
+      <span id="hero-line-1">SELECT</span><br>
+      <span id="hero-line-2">YOUR MODE.</span>
+    </h1>
+    <p id="hero-copy" class="scs-hero-copy" style="margin: 0 auto;">
+      覚悟を決めて、プランを選ぶ。<br>
+      中途半端な決意なら、FREEで十分だ。
+    </p>
+  </header>
+
+  <!-- Pricing Grid -->
+  <section>
+    <div class="pricing-grid">
+      
+      <!-- Free Plan -->
+      <div class="plan-card">
+        <span class="plan-name"><span id="free-name">FREE</span><br><small id="free-name-sub" style="font-size: 0.5em;">(CASUAL)</small></span>
+        <span id="free-price" class="plan-price">¥0 / MONTH</span>
+        <ul class="plan-features">
+          <li id="free-f1" class="active">基本ブロック機能</li>
+          <li id="free-f2" class="active">スクワット解除 (10回固定)</li>
+          <li id="free-f3">統計データの保存</li>
+          <li id="free-f4">カスタマイズ設定</li>
+          <li id="free-f5">優先サポート</li>
+        </ul>
+        <a id="free-cta" href="#" class="scs-btn-plan" style="background: #999;">CURRENT MODE</a>
+      </div>
+
+      <!-- Pro Plan -->
+      <div class="plan-card pro">
+        <div id="pro-badge" style="position: absolute; top: -15px; right: -15px; background: var(--pop-black); color: var(--pop-yellow); padding: 5px 15px; font-weight: bold; font-family: var(--font-display);">RECOMMENDED</div>
+        <span class="plan-name"><span id="pro-name">PRO</span><br><small id="pro-name-sub" style="font-size: 0.5em;">(WORKER)</small></span>
+        <span id="pro-price" class="plan-price">¥500 / MONTH</span>
+        <ul class="plan-features">
+          <li id="pro-f1" class="active">基本ブロック機能</li>
+          <li id="pro-f2" class="active">スクワット解除 (回数設定可)</li>
+          <li id="pro-f3" class="active">統計データの保存 (無制限)</li>
+          <li id="pro-f4" class="active">カスタマイズ設定 (Full)</li>
+          <li id="pro-f5" class="active">優先サポート</li>
+        </ul>
+        <a id="pro-cta" href="#" class="scs-btn-plan">ACTIVATE PRO</a>
+        <p id="trial-note" style="text-align: center; margin-top: 15px; font-size: 0.8rem; font-weight: bold;">
+          14 DAYS FREE TRIAL.<br>
+          NO CREDIT CARD REQUIRED.
+        </p>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- FAQ Section (Brutalist List) -->
+  <section class="scs-spec-section dark">
+    <div class="scs-hero-container">
+      <div class="scs-header-block white">
+        <h2 class="scs-section-title">SYSTEM_FAQ</h2>
+        <span class="scs-section-id">##05</span>
+      </div>
+
+      <div class="scs-spec-list">
+        <div class="scs-spec-row">
+          <div class="scs-spec-key">BILLING<br><small>支払い</small></div>
+          <div class="scs-spec-val">
+            <p id="faq-billing">Stripe経由での安全な決済。カード情報は当サイトには保存されません。</p>
+          </div>
+        </div>
+        <div class="scs-spec-row">
+          <div class="scs-spec-key">CANCEL<br><small>解約</small></div>
+          <div class="scs-spec-val">
+            <p id="faq-cancel">いつでもダッシュボードから解約可能。引き止め工作は一切ありません。</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer CTA -->
+  <footer class="scs-footer">
+    <div class="scs-footer-marquee">
+       <span>INSTALL NOW // INSTALL NOW // INSTALL NOW // INSTALL NOW // INSTALL NOW // INSTALL NOW // INSTALL NOW // INSTALL NOW //</span>
+    </div>
+
+    <div class="scs-footer-container">
+      <h2 class="scs-huge-cta">
+        UNLEASH<span class="scs-jp-mini footer">解き放つ、</span><br>
+        YOUR<br>
+        <span class="stroke-text">FOCUS</span>
+        <span class="scs-jp-mini footer highlight">集中力。</span>
+      </h2>
+      <p id="footer-copy" class="scs-copyright">© 2026 THE TOLL // SYSTEM ACTIVE // VER 1.0</p>
+    </div>
+  </footer>
+
+  <script>
+    const I18N = {
+      ja: {
+        title: 'THE TOLL | 料金プラン (Pricing)',
+        backToTop: 'トップへ戻る',
+        badge: 'PAYMENT PROTOCOL // 04',
+        hero1: 'SELECT',
+        hero2: 'YOUR MODE.',
+        heroCopy: '覚悟を決めて、プランを選ぶ。<br>中途半端な決意なら、FREEで十分だ。',
+        freeNameSub: '(CASUAL)',
+        freePrice: '¥0 / MONTH',
+        freeF1: '基本ブロック機能',
+        freeF2: 'スクワット解除 (10回固定)',
+        freeF3: '統計データの保存',
+        freeF4: 'カスタマイズ設定',
+        freeF5: '優先サポート',
+        freeCta: 'CURRENT MODE',
+        proBadge: 'RECOMMENDED',
+        proNameSub: '(WORKER)',
+        proPrice: '¥500 / MONTH',
+        proF1: '基本ブロック機能',
+        proF2: 'スクワット解除 (回数設定可)',
+        proF3: '統計データの保存 (無制限)',
+        proF4: 'カスタマイズ設定 (Full)',
+        proF5: '優先サポート',
+        proCta: 'ACTIVATE PRO',
+        trialNote: '14 DAYS FREE TRIAL.<br>NO CREDIT CARD REQUIRED.',
+        faqBilling: 'Stripe経由での安全な決済。カード情報は当サイトには保存されません。',
+        faqCancel: 'いつでもダッシュボードから解約可能。引き止め工作は一切ありません。',
+        footerCopy: '© 2026 THE TOLL // SYSTEM ACTIVE // VER 1.0'
+      },
+      en: {
+        title: 'THE TOLL | Pricing',
+        backToTop: 'BACK TO TOP',
+        badge: 'PAYMENT PROTOCOL // 04',
+        hero1: 'SELECT',
+        hero2: 'YOUR MODE.',
+        heroCopy: 'Pick your plan and commit.<br>If your commitment is half-way, FREE is enough.',
+        freeNameSub: '(CASUAL)',
+        freePrice: '$0 / MONTH',
+        freeF1: 'Core blocking features',
+        freeF2: 'Squat unlock (fixed 10 reps)',
+        freeF3: 'Stats history',
+        freeF4: 'Customization options',
+        freeF5: 'Priority support',
+        freeCta: 'CURRENT MODE',
+        proBadge: 'RECOMMENDED',
+        proNameSub: '(WORKER)',
+        proPrice: '$4.99 / MONTH',
+        proF1: 'Core blocking features',
+        proF2: 'Squat unlock (custom reps)',
+        proF3: 'Unlimited stats history',
+        proF4: 'Full customization',
+        proF5: 'Priority support',
+        proCta: 'ACTIVATE PRO',
+        trialNote: '14 DAYS FREE TRIAL.<br>NO CREDIT CARD REQUIRED.',
+        faqBilling: 'Secure Stripe checkout. Card details are never stored on this site.',
+        faqCancel: 'Cancel anytime from the dashboard. No retention tricks.',
+        footerCopy: '© 2026 THE TOLL // SYSTEM ACTIVE // VER 1.0'
+      }
+    };
+
+    function detectLang() {
+      const q = new URLSearchParams(window.location.search).get('lang');
+      if (q === 'ja' || q === 'en') return q;
+      return (navigator.language || 'en').toLowerCase().startsWith('ja') ? 'ja' : 'en';
+    }
+
+    function setLang(lang) {
+      const t = I18N[lang] || I18N.en;
+      document.documentElement.lang = lang;
+      document.title = t.title;
+      document.getElementById('back-to-top-link').textContent = t.backToTop;
+      document.getElementById('badge').textContent = t.badge;
+      document.getElementById('hero-line-1').textContent = t.hero1;
+      document.getElementById('hero-line-2').textContent = t.hero2;
+      document.getElementById('hero-copy').innerHTML = t.heroCopy;
+
+      document.getElementById('free-name-sub').textContent = t.freeNameSub;
+      document.getElementById('free-price').textContent = t.freePrice;
+      document.getElementById('free-f1').textContent = t.freeF1;
+      document.getElementById('free-f2').textContent = t.freeF2;
+      document.getElementById('free-f3').textContent = t.freeF3;
+      document.getElementById('free-f4').textContent = t.freeF4;
+      document.getElementById('free-f5').textContent = t.freeF5;
+      document.getElementById('free-cta').textContent = t.freeCta;
+
+      document.getElementById('pro-badge').textContent = t.proBadge;
+      document.getElementById('pro-name-sub').textContent = t.proNameSub;
+      document.getElementById('pro-price').textContent = t.proPrice;
+      document.getElementById('pro-f1').textContent = t.proF1;
+      document.getElementById('pro-f2').textContent = t.proF2;
+      document.getElementById('pro-f3').textContent = t.proF3;
+      document.getElementById('pro-f4').textContent = t.proF4;
+      document.getElementById('pro-f5').textContent = t.proF5;
+      document.getElementById('pro-cta').textContent = t.proCta;
+      document.getElementById('trial-note').innerHTML = t.trialNote;
+
+      document.getElementById('faq-billing').textContent = t.faqBilling;
+      document.getElementById('faq-cancel').textContent = t.faqCancel;
+      document.getElementById('footer-copy').textContent = t.footerCopy;
+
+      document.getElementById('lang-en-btn').style.textDecoration = lang === 'en' ? 'underline' : 'none';
+      document.getElementById('lang-ja-btn').style.textDecoration = lang === 'ja' ? 'underline' : 'none';
+
+      const url = new URL(window.location.href);
+      url.searchParams.set('lang', lang);
+      window.history.replaceState({}, '', url.toString());
+    }
+
+    const initialLang = detectLang();
+    setLang(initialLang);
+    document.getElementById('lang-en-btn').addEventListener('click', () => setLang('en'));
+    document.getElementById('lang-ja-btn').addEventListener('click', () => setLang('ja'));
+
+    // Reveal Animation Sync
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('revealed');
+        }
+      });
+    }, { threshold: 0.1 });
+    document.querySelectorAll('[data-reveal]').forEach(el => observer.observe(el));
+  </script>
+</body>
+</html>

@@ -5,7 +5,7 @@ Last updated: 2026-02-13
 This page provides support contact information and common troubleshooting steps for THE TOLL.
 
 ## Contact
-- Support email: `support@example.com`
+- Support email: `info@machinami0924.com`
 - Response time target: within 2 business days
 
 ## Before Contacting Support
@@ -50,6 +50,6 @@ Please include:
 - Refund policy follows the Terms of Service.
 
 ## Policy Links
-- Privacy Policy: `https://example.com/privacy`
-- Terms of Service: `https://example.com/terms`
+- Privacy Policy: `https://machinami0924.com/privacy`
+- Terms of Service: `https://machinami0924.com/terms`
 

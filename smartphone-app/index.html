@@ -2,19 +2,19 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>THE TOLL - Workout Challenge</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;700&family=Roboto+Mono:wght@400;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=2.18">
+  <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;700&family=Noto+Sans+JP:wght@400;700&family=Roboto+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css?v=2.30">
   <!-- MediaPipe Pose -->
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js" crossorigin="anonymous"></script>
   <!-- PWA -->
   <link rel="manifest" href="manifest.json">
-  <meta name="theme-color" content="#000000">
+  <meta name="theme-color" content="#FFD400">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="THE TOLL">
@@ -34,180 +34,400 @@
       });
     }
   </script>
+  <style>
+    .global-lang-switch {
+      position: fixed;
+      top: calc(env(safe-area-inset-top, 0px) + 10px);
+      right: 10px;
+      z-index: 1200;
+      display: inline-flex;
+      gap: 6px;
+      padding: 4px;
+      border: 2px solid #000;
+      background: #fff;
+      box-shadow: 3px 3px 0 #000;
+    }
+    .global-lang-btn {
+      border: 2px solid transparent;
+      background: transparent;
+      color: #000;
+      font-family: 'Roboto Mono', monospace;
+      font-weight: 700;
+      font-size: 0.75rem;
+      line-height: 1;
+      padding: 6px 10px;
+      cursor: pointer;
+    }
+    .global-lang-btn.active {
+      border-color: #000;
+      background: var(--pop-yellow);
+    }
+  </style>
   <div id="app">
-    <!-- 認証画面 ... -->
+    <div class="global-lang-switch" aria-label="Language switch">
+      <button id="global-lang-en-btn" class="global-lang-btn" type="button">EN</button>
+      <button id="global-lang-ja-btn" class="global-lang-btn" type="button">JA</button>
+    </div>
     
-    <!-- 17: (skipped unchanged lines) -->
-    <!-- 認証画面 -->
-    <div id="auth-screen" class="screen active">
-      <div class="container">
-        <h1>THE TOLL</h1>
-        <p class="subtitle">LET'S DO OUR BEST!</p>
+    <!-- AUTH SCREEN -->
+    <div id="auth-screen" class="screen">
+      <div class="container" style="text-align:center;">
+        <span id="auth-badge" class="scs-badge" style="margin-top:20px;">SYSTEM ACCESS // 01</span>
+        <h1 class="scs-hero-title">THE<br>TOLL</h1>
+        <p id="auth-copy" class="scs-hero-copy">VERIFY IDENTITY TO PROCEED.</p>
         
-        <div id="auth-form">
-          <p id="auth-guide-1" style="font-size:0.72rem; margin: 2px 0; opacity:0.85;">Use Google to create or sign in.</p>
-          <p id="auth-guide-2" style="font-size:0.72rem; margin: 2px 0 14px; opacity:0.85;">Paid plan is required to start sessions.</p>
+        <div id="auth-form" class="scs-panel">
+          <p id="auth-guide-1" style="font-family:'Roboto Mono'; font-size:0.8rem; margin-bottom:5px;">Initiate authentication protocol.</p>
+          <p id="auth-guide-2" style="font-family:'Roboto Mono'; font-size:0.8rem; margin-bottom:20px; font-weight:bold;">SUBSCRIPTION REQUIRED.</p>
           <div class="auth-buttons">
-            <button id="google-login-btn" class="btn primary">CONTINUE WITH GOOGLE</button>
+            <button id="google-login-btn" class="scs-btn-plan" style="font-size:1.2rem;">INITIATE GOOGLE AUTH</button>
           </div>
         </div>
         
-        <div id="user-info" class="hidden">
-          <p id="user-display-email" class="session-id-display"></p>
-          <div id="subscription-status-badge"></div>
-          <div id="trial-badge" class="hidden" style="margin-top:8px; font-size:0.75rem; opacity:0.85;"></div>
+        <div id="user-info" class="hidden scs-panel">
+          <p id="user-display-email" class="session-id-display" style="font-size:0.9rem; border-bottom:2px dashed black; padding-bottom:10px; margin-bottom:15px;"></p>
           
-          <button id="install-btn" class="btn secondary hidden">INSTALL APP</button>
-          <button id="subscribe-btn" class="btn primary">SUBSCRIBE ($49/YEAR)</button>
-          <button id="manage-subscription-btn" class="btn secondary hidden">MANAGE SUBSCRIPTION</button>
+          <div id="subscription-status-badge" style="font-family:'Oswald'; font-size:1.5rem; background:black; color:white; padding:5px 10px; display:inline-block; margin-bottom:10px;"></div>
+          <div id="trial-badge" class="hidden" style="font-family:'Roboto Mono'; font-size:0.8rem; background:var(--pop-yellow); padding:2px 8px; font-weight:bold; margin-bottom:15px;"></div>
           
-          <button id="to-session-btn" class="btn secondary">ENTER SESSION</button>
-          <button id="logout-btn" class="text-btn">LOGOUT</button>
+          <button id="install-btn" class="scs-btn-plan hidden" style="margin-bottom:10px;">INSTALL APP</button>
+          <button id="subscribe-btn" class="scs-btn-plan" style="margin-bottom:10px;">SUBSCRIBE ($49/YEAR)</button>
+          <button id="manage-subscription-btn" class="scs-btn-plan hidden" style="margin-bottom:10px; background:#ccc; color:black;">MANAGE SUBSCRIPTION</button>
+          
+          <button id="to-session-btn" class="scs-btn-plan" style="background:var(--pop-yellow); color:black; border:4px solid black;">ENTER SESSION</button>
+          <button id="logout-btn" class="text-btn" style="margin-top:15px; font-family:'Roboto Mono'; text-decoration:underline;">LOGOUT</button>
         </div>
         
-        <a href="#" onclick="forceReset(); return false;" class="text-btn" style="display:block; margin-top: 30px; opacity: 0.5;">System Hard Reset (v2.18)</a>
+        <a href="#" id="auth-reset-link" onclick="forceReset(); return false;" class="text-btn" style="display:block; margin-top: 30px; opacity: 0.5; font-family:'Roboto Mono'; font-size:0.7rem;">System Hard Reset (v2.30)</a>
       </div>
     </div>
 
-    <!-- セッションID入力画面 -->
-    <div id="session-screen" class="screen">
+    <!-- SESSION SCREEN -->
+    <div id="session-screen" class="screen active">
       <div class="container">
-        <h1>THE TOLL</h1>
-        <p class="subtitle">WANT TO BROWSE?</p>
+        <span id="session-badge" class="scs-badge">TARGET ACQUISITION // 02</span>
+        <h1 id="session-title" class="scs-hero-title" style="font-size:3.5rem;">UNLOCK<br>MISSION</h1>
         
-        <div class="input-group">
-          <label for="session-input">SESSION ID</label>
-          <input type="text" id="session-input" placeholder="XXXX-XXXX" maxlength="9" autocomplete="off">
+        <div class="scs-input-group">
+          <label id="session-input-label" for="session-input" class="scs-input-label">SESSION ID</label>
+          <input type="text" id="session-input" class="scs-input-field" placeholder="XXXX-XXXX" maxlength="9" autocomplete="off">
         </div>
         
         <div class="session-buttons">
-          <button id="start-btn" class="btn primary">
+          <button id="start-btn" class="scs-btn-plan" style="margin-bottom:15px;" disabled>
             START CHALLENGE
           </button>
-          <p id="next-exercise-display" class="subtitle" style="margin-top: -10px; font-size: 0.6rem; color: var(--volt);">NEXT: (LOADING...)</p>
-          <div style="font-size: 0.5rem; opacity: 0.5; margin-bottom: 20px;">
-            <a href="#" id="reset-cycle-btn" style="color: var(--volt); text-decoration: none;">[CHANGE EXERCISE]</a>
-            <span id="cycle-debug-info" style="margin-left: 10px;">ID: -</span>
+          
+          <p id="next-exercise-display" class="subtitle hidden" style="font-size: 0.8rem; font-family:'Roboto Mono'; font-weight:bold; color: var(--pop-black); margin-bottom:10px;">EXERCISE: (LOADING...)</p>
+          
+          <div id="pro-exercise-selector" class="exercise-selector hidden" style="margin-bottom:20px;">
+            <label id="exercise-select-label" for="exercise-select" class="scs-input-label">OVERRIDE EXERCISE</label>
+            <select id="exercise-select" class="scs-input-field" style="padding:10px; font-size:1.2rem;">
+              <option id="exercise-option-squat" value="0">SQUAT</option>
+              <option id="exercise-option-pushup" value="1">PUSH-UP</option>
+              <option id="exercise-option-situp" value="2">SIT-UP</option>
+            </select>
           </div>
           
-          <button id="scan-qr-btn" class="btn secondary">
+          <div style="font-size: 0.7rem; font-family:'Roboto Mono'; opacity: 0.6; margin-bottom: 20px; text-align:center;">
+             <a href="#" id="reset-cycle-btn" style="color: black; text-decoration: none;">[FORCE NEXT]</a>
+             <span id="cycle-debug-info" style="margin-left: 10px;">ID: -</span>
+          </div>
+          
+          <button id="scan-qr-btn" class="scs-btn-plan scs-btn-black">
             SCAN QR CODE
           </button>
         </div>
         
-        <p class="subtitle" id="session-help-text" style="margin-top: 20px;">Enter the ID shown on your PC</p>
+        <p class="subtitle" id="session-help-text" style="margin-top: 20px; font-family:'Roboto Mono'; font-size:0.8rem; text-align:center;">Enter the ID shown on your PC</p>
         
-        <a href="#" id="session-logout-btn" class="text-btn">Logout from this account</a>
-        <a href="#" onclick="forceReset(); return false;" class="text-btn" style="display:block; margin-top:10px; opacity: 0.5;">System Hard Reset (v2.16)</a>
+        <a href="#" id="session-logout-btn" class="text-btn hidden" style="display:block; text-align:center; margin-top:20px; font-family:'Roboto Mono';">Logout from this account</a>
+        <a href="#" id="session-reset-link" onclick="forceReset(); return false;" class="text-btn" style="display:block; margin-top:10px; opacity: 0.5; text-align:center; font-family:'Roboto Mono'; font-size:0.7rem;">System Hard Reset (v2.30)</a>
       </div>
 
-      <!-- QRスキャナーオーバーレイ -->
-      <div id="qr-reader-container" class="hidden">
-        <div id="qr-reader"></div>
-        <button id="close-scan-btn" class="btn secondary" style="width: auto; margin-top: 20px;">CANCEL</button>
+      <!-- QR Scanner Overlay -->
+      <div id="qr-reader-container" class="hidden" style="position:fixed; top:0; left:0; width:100%; height:100%; background:black; z-index:999; display:flex; flex-direction:column; justify-content:center; align-items:center;">
+        <div id="qr-reader" style="width:100%;"></div>
+        <button id="close-scan-btn" class="scs-btn-plan" style="width:auto; margin-top:20px; background:white; color:black;">CANCEL SCAN</button>
+      </div>
+
+      <!-- QR Scanner Overlay -->
+      <div id="qr-reader-container" class="hidden" style="position:fixed; top:0; left:0; width:100%; height:100%; background:black; z-index:999; display:flex; flex-direction:column; justify-content:center; align-items:center;">
+        <div id="qr-reader" style="width:100%;"></div>
+        <button id="close-scan-btn" class="scs-btn-plan" style="width:auto; margin-top:20px; background:white; color:black;">CANCEL SCAN</button>
       </div>
     </div>
 
-    <!-- スクワット画面 -->
+    <!-- SQUAT SCREEN (HUD) -->
     <div id="squat-screen" class="screen">
-      <div class="camera-container">
-        <video id="camera" autoplay muted playsinline></video>
-        <canvas id="pose-canvas"></canvas>
+      <div class="camera-container" style="position:relative; width:100%; height:100vh; overflow:hidden; background:black;">
+        <video id="camera" autoplay muted playsinline style="width:100%; height:100%; object-fit:cover;"></video>
+        <canvas id="pose-canvas" style="position:absolute; top:0; left:0; width:100%; height:100%;"></canvas>
         
-        <div class="overlay-ui">
-          <div class="hud-top">
-            <div class="session-id-display">SESSION: <span id="current-session">-</span></div>
-            <div class="hud-top-right">
-              <button id="fullscreen-btn" class="hud-mini-btn">FULLSCREEN</button>
-              <div class="hud-status" id="status">READY</div>
+        <!-- Brutalist HUD Overlay -->
+        <div class="overlay-ui scs-hud-overlay">
+          <div class="scs-hud-top">
+            <div class="scs-hud-val" style="font-size:1.2rem;"><span id="hud-session-label">SESSION:</span> <span id="current-session">-</span></div>
+              <button id="fullscreen-btn" style="background:none; border:none; color:white; font-family:'Oswald'; font-size:1rem;">[FULL]</button>
+              <div class="hud-status scs-hud-val" id="status" style="background:var(--pop-black); padding:2px 5px;">READY</div>
             </div>
-          </div>
 
-          <div class="hud-center">
-             <div class="exercise-name" id="exercise-label">SQUAT</div>
-             <div class="squat-counter"><span id="squat-count">0</span><span class="squat-total">/<span id="target-count-display">20</span></span></div>
+          <div class="scs-hud-center">
+             <div class="exercise-name" id="exercise-label" style="font-family:'Oswald'; font-size:2rem; color:white; text-shadow:2px 2px 0 black; margin-bottom:-10px;">EXERCISE</div>
+             <div class="squat-counter">
+               <span id="squat-count" class="scs-hud-huge-count">0</span>
+               <span class="squat-total" style="font-family:'Oswald'; font-size:2rem; color:#ccc;">/<span id="target-count-display">20</span></span>
+             </div>
           </div>
-          
           
           <div class="hud-bottom">
-            <div class="hud-bottom-flex">
-              <div class="squat-guide" id="squat-hint">LOWER YOUR BODY</div>
-              <div style="display: flex; gap: 10px;">
-                <button id="recalibrate-btn" class="hud-btn">RESET CAPTURE</button>
-                <button id="exit-btn" class="hud-btn">EXIT</button>
+            <div class="hud-bottom-flex" style="background:rgba(0,0,0,0.7); padding:10px; border:2px solid white;">
+              <div class="squat-guide" id="squat-hint" style="font-family:'Oswald'; font-size:1.5rem; color:var(--pop-yellow); text-align:center;">LOWER YOUR BODY</div>
+              <div style="display: flex; gap: 10px; margin-top:10px; justify-content:center;">
+                <button id="recalibrate-btn" style="background:transparent; border:1px solid #999; color:#ccc; font-family:'Roboto Mono'; font-size:0.7rem; padding:5px;">RESET CAPTURE</button>
+                <button id="exit-btn" style="background:var(--pop-pink); border:none; color:white; font-family:'Oswald'; padding:5px 15px; font-size:1rem;">EXIT</button>
               </div>
             </div>
           </div>
         </div>
         
-        <div class="guide-overlay" id="guide">
-          <div class="squat-guide">
+        <div class="guide-overlay" id="guide" style="position:absolute; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); display:flex; justify-content:center; align-items:center; text-align:center; z-index:100;">
+          <div id="guide-copy" class="squat-guide" style="font-family:'Oswald'; font-size:3rem; color:var(--pop-yellow); border:4px solid var(--pop-yellow); padding:20px;">
             STAND BACK<br>SHOW US YOUR BODY!
           </div>
         </div>
       </div>
     </div>
 
-    <!-- 完了画面 -->
+    <!-- COMPLETE SCREEN -->
     <div id="complete-screen" class="screen">
-      <div class="container complete-container">
-        <div class="complete-ring">
-          <div class="check-mark">✓</div>
+      <div class="container complete-container" style="text-align:center; display:flex; flex-direction:column; justify-content:center; min-height:100vh;">
+        <div class="complete-ring" style="width:120px; height:120px; border:8px solid var(--pop-black); border-radius:50%; display:flex; justify-content:center; align-items:center; margin:0 auto 30px; box-shadow:8px 8px 0px var(--pop-yellow);">
+          <div class="check-mark" style="font-size:4rem; color:var(--pop-black);">✓</div>
         </div>
         
-        <h1 class="complete-title">DONE!</h1>
-        <p class="complete-subtitle">YOU'RE FREE TO GO (FOR NOW)</p>
+        <h1 id="complete-title" class="complete-title scs-hero-title" style="font-size:4rem; margin-bottom:10px;">ACCESS<br>GRANTED</h1>
+        <p id="complete-subtitle" class="complete-subtitle scs-hero-copy" style="font-size:1rem; margin-bottom:30px;">PROCEED TO WORKSTATION.</p>
         
-        <div class="stats-grid">
-          <div class="stat-box">
-            <div class="val" id="complete-reps-display">20</div>
-            <div class="lbl">REPS</div>
+        <div class="stats-grid scs-spec-section dark" style="padding:20px; margin-bottom:30px; border:4px solid var(--pop-black); background:black; color:white;">
+          <div class="stat-box" style="margin-bottom:15px; border-bottom:1px dashed #555; padding-bottom:10px;">
+            <div class="val" id="complete-reps-display" style="font-family:'Oswald'; font-size:3rem; color:var(--pop-yellow);">20</div>
+            <div id="complete-reps-label" class="lbl" style="font-family:'Roboto Mono'; font-size:0.8rem; color:#999;">REPS COMPLETE</div>
           </div>
-          <div class="divider"></div>
           <div class="stat-box">
-            <div class="val" id="session-time">--</div>
-            <div class="lbl">SEC</div>
+            <div class="val" id="session-time" style="font-family:'Oswald'; font-size:3rem; color:white;">--</div>
+            <div id="complete-seconds-label" class="lbl" style="font-family:'Roboto Mono'; font-size:0.8rem; color:#999;">SECONDS ELAPSED</div>
           </div>
         </div>
         
-        <button id="unlock-btn" class="btn primary">
+        <button id="unlock-btn" class="scs-btn-plan" style="margin-bottom:20px;">
           UNLOCK PC
         </button>
         
-        <p class="subtitle" id="unlock-status" style="margin-top: 20px;"></p>
+        <p class="subtitle" id="unlock-status" style="margin-top: 10px; font-family:'Roboto Mono'; font-weight:bold;"></p>
         
-        <a href="#" id="back-to-session-btn" class="text-btn" style="display:block; margin-bottom: 20px;">START ANOTHER SESSION</a>
+        <a href="#" id="back-to-session-btn" class="text-btn" style="display:block; margin-bottom: 20px; font-family:'Roboto Mono'; font-weight:bold; color:black; text-decoration:underline;">START ANOTHER SESSION</a>
         
-        <a href="#" onclick="forceReset(); return false;" class="text-btn" style="opacity: 0.5;">System Hard Reset (v2.16)</a>
+        <a href="#" id="complete-reset-link" onclick="forceReset(); return false;" class="text-btn" style="opacity: 0.5; font-family:'Roboto Mono'; font-size:0.7rem;">System Hard Reset (v2.30)</a>
       </div>
     </div>
         
-    
-    <!-- デバッグコンソール -->
+    <!-- Debug Console -->
     <div id="debug-console"></div>
   </div>
 
-  <script src="app.js?v=2.30"></script>
+  <script src="app.js?v=2.34"></script>
   <script>
-    const appLang = new URLSearchParams(window.location.search).get('lang') === 'ja' ? 'ja' : 'en';
-    if (appLang === 'ja') {
-      document.documentElement.lang = 'ja';
-      document.title = 'THE TOLL - スクワットチャレンジ';
-      const sessionHelp = document.getElementById('session-help-text');
-      if (sessionHelp) sessionHelp.textContent = 'PCに表示されたIDを入れてね';
-      const authGuide1 = document.getElementById('auth-guide-1');
-      const authGuide2 = document.getElementById('auth-guide-2');
-      const googleLoginBtn = document.getElementById('google-login-btn');
-      const manageSubscriptionBtn = document.getElementById('manage-subscription-btn');
-      if (authGuide1) authGuide1.textContent = 'Googleアカウントで登録・ログインします。';
-      if (authGuide2) authGuide2.textContent = 'セッション開始には有料プランが必要です。';
-      if (googleLoginBtn) googleLoginBtn.textContent = 'Googleで続行';
-      if (manageSubscriptionBtn) manageSubscriptionBtn.textContent = 'サブスク管理';
+    function detectUiLanguage() {
+      const params = new URLSearchParams(window.location.search);
+      const qLang = (params.get('lang') || '').trim().toLowerCase();
+      if (qLang === 'ja' || qLang === 'en') return qLang;
+      const langs = Array.isArray(navigator.languages) ? navigator.languages : [];
+      const firstLocale = (langs[0] || navigator.language || '').toLowerCase();
+      return firstLocale.startsWith('ja') ? 'ja' : 'en';
     }
+
+    const appLang = detectUiLanguage();
+    const TEXT = {
+      en: {
+        title: 'THE TOLL - Workout Challenge',
+        authBadge: 'SYSTEM ACCESS // 01',
+        authCopy: 'VERIFY IDENTITY TO PROCEED.',
+        authGuide1: 'Initiate authentication protocol.',
+        authGuide2: 'SUBSCRIPTION REQUIRED.',
+        googleLoginBtn: 'INITIATE GOOGLE AUTH',
+        installBtn: 'INSTALL APP',
+        subscribeBtn: 'SUBSCRIBE ($49/YEAR)',
+        manageSubscriptionBtn: 'MANAGE SUBSCRIPTION',
+        toSessionBtn: 'ENTER SESSION',
+        logoutBtn: 'LOGOUT',
+        authResetLink: 'System Hard Reset (v2.30)',
+        sessionBadge: 'TARGET ACQUISITION // 02',
+        sessionTitle: 'UNLOCK<br>MISSION',
+        sessionInputLabel: 'SESSION ID',
+        sessionInputPlaceholder: 'XXXX-XXXX',
+        startBtn: 'START CHALLENGE',
+        nextExerciseDisplay: 'EXERCISE: (LOADING...)',
+        exerciseSelectLabel: 'OVERRIDE EXERCISE',
+        exerciseOptionSquat: 'SQUAT',
+        exerciseOptionPushup: 'PUSH-UP',
+        exerciseOptionSitup: 'SIT-UP',
+        resetCycleBtn: '[FORCE NEXT]',
+        cycleDebugInfo: 'ID: -',
+        scanQrBtn: 'SCAN QR CODE',
+        sessionHelpText: 'Enter the ID shown on your PC',
+        sessionLogoutBtn: 'Logout from this account',
+        sessionResetLink: 'System Hard Reset (v2.30)',
+        closeScanBtn: 'CANCEL SCAN',
+        hudSessionLabel: 'SESSION:',
+        fullscreenBtn: '[FULL]',
+        status: 'READY',
+        exerciseLabel: 'EXERCISE',
+        squatHint: 'LOWER YOUR BODY',
+        recalibrateBtn: 'RESET CAPTURE',
+        exitBtn: 'EXIT',
+        guideCopy: 'STAND BACK<br>SHOW US YOUR BODY!',
+        completeTitle: 'ACCESS<br>GRANTED',
+        completeSubtitle: 'PROCEED TO WORKSTATION.',
+        completeRepsLabel: 'REPS COMPLETE',
+        completeSecondsLabel: 'SECONDS ELAPSED',
+        unlockBtn: 'UNLOCK PC',
+        backToSessionBtn: 'START ANOTHER SESSION',
+        completeResetLink: 'System Hard Reset (v2.30)',
+        confirmReset: 'Reset app data and reload?'
+      },
+      ja: {
+        title: 'THE TOLL - トレーニングチャレンジ',
+        authBadge: 'システムアクセス // 01',
+        authCopy: '続行するには本人確認が必要です。',
+        authGuide1: '認証プロトコルを開始します。',
+        authGuide2: 'サブスクリプションが必要です。',
+        googleLoginBtn: 'Googleで認証開始',
+        installBtn: 'アプリをインストール',
+        subscribeBtn: 'サブスク登録（年額 $49）',
+        manageSubscriptionBtn: 'サブスク管理',
+        toSessionBtn: 'セッションへ進む',
+        logoutBtn: 'ログアウト',
+        authResetLink: 'システム強制リセット (v2.30)',
+        sessionBadge: 'ターゲット取得 // 02',
+        sessionTitle: '解除<br>ミッション',
+        sessionInputLabel: 'セッションID',
+        sessionInputPlaceholder: 'XXXX-XXXX',
+        startBtn: 'チャレンジ開始',
+        nextExerciseDisplay: '種目: (読み込み中...)',
+        exerciseSelectLabel: '種目を上書き',
+        exerciseOptionSquat: 'スクワット',
+        exerciseOptionPushup: '腕立て伏せ',
+        exerciseOptionSitup: '腹筋',
+        resetCycleBtn: '[次の種目]',
+        cycleDebugInfo: 'ID: -',
+        scanQrBtn: 'QRコードを読む',
+        sessionHelpText: 'PCに表示されたIDを入力',
+        sessionLogoutBtn: 'このアカウントからログアウト',
+        sessionResetLink: 'システム強制リセット (v2.30)',
+        closeScanBtn: 'スキャンを中止',
+        hudSessionLabel: 'セッション:',
+        fullscreenBtn: '[全画面]',
+        status: '準備OK',
+        exerciseLabel: '種目',
+        squatHint: '体を下げる',
+        recalibrateBtn: '再キャリブレーション',
+        exitBtn: '終了',
+        guideCopy: '少し離れて<br>全身を映してください！',
+        completeTitle: 'アクセス<br>許可',
+        completeSubtitle: 'ブロックを解除しました。',
+        completeRepsLabel: '完了回数',
+        completeSecondsLabel: '経過秒数',
+        unlockBtn: 'PCをアンロック',
+        backToSessionBtn: '別セッションを開始',
+        completeResetLink: 'システム強制リセット (v2.30)',
+        confirmReset: 'アプリデータを初期化して再読み込みしますか？'
+      }
+    };
+
+    function setText(id, text, useHtml) {
+      const el = document.getElementById(id);
+      if (!el) return;
+      if (useHtml) el.innerHTML = text;
+      else el.textContent = text;
+    }
+
+    function applyStaticLocale(lang) {
+      const m = TEXT[lang] || TEXT.en;
+      document.documentElement.lang = lang;
+      document.title = m.title;
+      const langEnBtn = document.getElementById('global-lang-en-btn');
+      const langJaBtn = document.getElementById('global-lang-ja-btn');
+      if (langEnBtn) langEnBtn.classList.toggle('active', lang === 'en');
+      if (langJaBtn) langJaBtn.classList.toggle('active', lang === 'ja');
+
+      setText('auth-badge', m.authBadge);
+      setText('auth-copy', m.authCopy);
+      setText('auth-guide-1', m.authGuide1);
+      setText('auth-guide-2', m.authGuide2);
+      setText('google-login-btn', m.googleLoginBtn);
+      setText('install-btn', m.installBtn);
+      setText('subscribe-btn', m.subscribeBtn);
+      setText('manage-subscription-btn', m.manageSubscriptionBtn);
+      setText('to-session-btn', m.toSessionBtn);
+      setText('logout-btn', m.logoutBtn);
+      setText('auth-reset-link', m.authResetLink);
+
+      setText('session-badge', m.sessionBadge);
+      setText('session-title', m.sessionTitle, true);
+      setText('session-input-label', m.sessionInputLabel);
+      const sessionInput = document.getElementById('session-input');
+      if (sessionInput) sessionInput.placeholder = m.sessionInputPlaceholder;
+      setText('start-btn', m.startBtn);
+      setText('next-exercise-display', m.nextExerciseDisplay);
+      setText('exercise-select-label', m.exerciseSelectLabel);
+      setText('exercise-option-squat', m.exerciseOptionSquat);
+      setText('exercise-option-pushup', m.exerciseOptionPushup);
+      setText('exercise-option-situp', m.exerciseOptionSitup);
+      setText('reset-cycle-btn', m.resetCycleBtn);
+      setText('cycle-debug-info', m.cycleDebugInfo);
+      setText('scan-qr-btn', m.scanQrBtn);
+      setText('session-help-text', m.sessionHelpText);
+      setText('session-logout-btn', m.sessionLogoutBtn);
+      setText('session-reset-link', m.sessionResetLink);
+      setText('close-scan-btn', m.closeScanBtn);
+
+      setText('hud-session-label', m.hudSessionLabel);
+      setText('fullscreen-btn', m.fullscreenBtn);
+      setText('status', m.status);
+      setText('exercise-label', m.exerciseLabel);
+      setText('squat-hint', m.squatHint);
+      setText('recalibrate-btn', m.recalibrateBtn);
+      setText('exit-btn', m.exitBtn);
+      setText('guide-copy', m.guideCopy, true);
+
+      setText('complete-title', m.completeTitle, true);
+      setText('complete-subtitle', m.completeSubtitle);
+      setText('complete-reps-label', m.completeRepsLabel);
+      setText('complete-seconds-label', m.completeSecondsLabel);
+      setText('unlock-btn', m.unlockBtn);
+      setText('back-to-session-btn', m.backToSessionBtn);
+      setText('complete-reset-link', m.completeResetLink);
+    }
+
+    applyStaticLocale(appLang);
+
+    function setLanguage(lang) {
+      if (lang !== 'ja' && lang !== 'en') return;
+      const params = new URLSearchParams(window.location.search);
+      params.set('lang', lang);
+      const next = `${window.location.pathname}?${params.toString()}`;
+      window.location.href = next;
+    }
+
+    const globalLangEnBtn = document.getElementById('global-lang-en-btn');
+    const globalLangJaBtn = document.getElementById('global-lang-ja-btn');
+    if (globalLangEnBtn) globalLangEnBtn.addEventListener('click', () => setLanguage('en'));
+    if (globalLangJaBtn) globalLangJaBtn.addEventListener('click', () => setLanguage('ja'));
 
     // 強制リセット関数
     async function forceReset() {
-      if(!confirm(appLang === 'ja' ? 'アプリを初期化して再読み込みしますか？' : 'Reset app data and reload?')) return;
+      if(!confirm((TEXT[appLang] || TEXT.en).confirmReset)) return;
       
       if ('serviceWorker' in navigator) {
         const registrations = await navigator.serviceWorker.getRegistrations();

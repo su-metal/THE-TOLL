@@ -1,22 +1,24 @@
 {
   "manifest_version": 3,
   "name": "THE TOLL - Squat to Unlock",
-  "version": "1.0.2",
-  "description": "Block YouTube until you complete 5 squats on your phone",
+  "version": "1.0.3",
+  "description": "Block distracting sites until you complete a quick exercise on your phone",
   "permissions": [
     "storage",
     "identity",
-    "tabs"
+    "tabs",
+    "scripting"
   ],
   "background": {
     "service_worker": "background.js"
   },
   "host_permissions": [
-    "<all_urls>"
+    "http://*/*",
+    "https://*/*"
   ],
   "content_scripts": [
     {
-      "matches": ["<all_urls>"],
+      "matches": ["http://*/*", "https://*/*"],
       "js": ["lib/qrcode.min.js", "content.js"],
       "css": ["overlay.css"],
       "run_at": "document_end"
@@ -24,14 +26,17 @@
   ],
   "web_accessible_resources": [
     {
-      "resources": ["images/*", "overlay.css", "blocked_adult_sites.json"],
-      "matches": ["<all_urls>"]
+      "resources": ["overlay.css", "blocked_adult_sites.json"],
+      "matches": ["http://*/*", "https://*/*"]
     }
   ],
   "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
     "48": "icons/icon48.png",
     "128": "icons/icon128.png"
   },
+  "options_page": "popup.html",
   "action": {
     "default_popup": "popup.html",
     "default_title": "THE TOLL Settings"
