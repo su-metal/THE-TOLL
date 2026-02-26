@@ -25,7 +25,7 @@
       <p id="plan-detail-label" class="plan-detail hidden"></p>
       <div class="primary-cta-section">
         <div class="footer-actions">
-          <button id="manage-subscription-btn" class="add-btn hidden" data-i18n="manageSubscription">MANAGE SUBSCRIPTION</button>
+          <button id="manage-subscription-btn" type="button" class="add-btn hidden" data-i18n="manageSubscription">MANAGE SUBSCRIPTION</button>
           <button id="upgrade-btn" class="add-btn" data-i18n="upgradeToPro">UPGRADE TO PRO</button>
         </div>
         <p id="trial-note" class="trial-note" data-i18n="trialNote">
@@ -54,37 +54,42 @@
       <div class="settings-group">
         <label class="group-label" data-i18n="unlockPreset">UNLOCK PRESET</label>
         <div id="unlock-preset-options" class="preset-options">
-          <label class="preset-option">
-            <input type="radio" name="unlock-preset" value="light">
+          <label class="preset-option free-only">
+            <input type="radio" name="unlock-preset" value="short">
             <span class="preset-card">
-              <span class="preset-name">LIGHT</span>
-              <span class="preset-detail">10 REPS / 10 MIN</span>
+              <span class="preset-name">SHORT</span>
+              <span class="preset-detail">20 REPS / 10 MIN</span>
             </span>
           </label>
-          <label class="preset-option">
-            <input type="radio" name="unlock-preset" value="standard">
+          <label class="preset-option free-only">
+            <input type="radio" name="unlock-preset" value="long">
             <span class="preset-card">
-              <span class="preset-name">STANDARD</span>
-              <span class="preset-detail">20 REPS / 20 MIN</span>
+              <span class="preset-name">LONG</span>
+              <span class="preset-detail">40 REPS / 20 MIN</span>
             </span>
           </label>
-          <label class="preset-option">
-            <input type="radio" name="unlock-preset" value="hard">
+          <label class="preset-option pro-only">
+            <input type="radio" name="unlock-preset" value="custom_a">
             <span class="preset-card">
-              <span class="preset-name">HARD</span>
-              <span class="preset-detail">40 REPS / 40 MIN</span>
+              <span class="preset-name">CUSTOM A</span>
+              <span class="preset-detail">20 REPS / 10 MIN</span>
             </span>
           </label>
-          <label class="preset-option">
-            <input type="radio" name="unlock-preset" value="extreme">
+          <label class="preset-option pro-only">
+            <input type="radio" name="unlock-preset" value="custom_b">
             <span class="preset-card">
-              <span class="preset-name">EXTREME</span>
-              <span class="preset-detail">60 REPS / 60 MIN</span>
+              <span class="preset-name">CUSTOM B</span>
+              <span class="preset-detail">40 REPS / 20 MIN</span>
             </span>
           </label>
         </div>
+        <div id="unlock-custom-duration-wrap" class="hidden" style="margin-top:8px;">
+          <label class="group-label" style="margin-bottom:6px;" data-i18n="proCustomDuration">PRO CUSTOM DURATIONS</label>
+          <input id="unlock-custom-duration" type="range" min="10" max="30" step="1" value="20" style="width:100%;">
+          <p id="unlock-custom-duration-value" class="schedule-lock-note" style="margin-top:6px;">20 MIN</p>
+        </div>
         <p id="unlock-preset-note" class="schedule-lock-note" data-i18n="presetCooldownNote">
-          Weaker changes apply after 8 hours. Stronger changes apply immediately.
+          FREE: SHORT/LONG fixed. PRO: choose CUSTOM A/B and edit each duration.
         </p>
         <div id="unlock-policy-state" class="policy-state">
           <p id="unlock-active-policy" class="policy-line"></p>
@@ -105,9 +110,10 @@
           <label class="site-check"><input type="checkbox" name="blocked-site" value="instagram.com"><span>Instagram</span></label>
           <label class="site-check"><input type="checkbox" name="blocked-site" value="tiktok.com"><span>TikTok</span></label>
           <label class="site-check"><input type="checkbox" name="blocked-site" value="reddit.com"><span>Reddit</span></label>
-          <label class="site-check"><input type="checkbox" name="blocked-site" value="facebook.com"><span>Facebook</span></label>
+          <label class="site-check"><input type="checkbox" name="blocked-site" value="twitch.tv"><span>Twitch</span></label>
           <label class="site-check"><input type="checkbox" name="blocked-site" value="netflix.com"><span>Netflix</span></label>
         </div>
+        <p id="blocked-sites-toast" class="blocked-sites-toast hidden" aria-live="polite"></p>
         
         <div class="custom-sites-section">
           <div class="input-row">
@@ -142,14 +148,48 @@
         <div class="schedule-time">
           <div class="time-input">
             <span class="time-label" data-i18n="start">START</span>
-            <input type="time" id="start-time" value="09:00">
+            <div class="time-picker" id="start-time-picker">
+              <select id="start-hour" aria-label="Start hour"></select>
+              <span class="time-colon">:</span>
+              <select id="start-minute" aria-label="Start minute"></select>
+            </div>
           </div>
           <div class="time-separator" data-i18n="to">TO</div>
           <div class="time-input">
             <span class="time-label" data-i18n="end">END</span>
-            <input type="time" id="end-time" value="18:00">
+            <div class="time-picker" id="end-time-picker">
+              <select id="end-hour" aria-label="End hour"></select>
+              <span class="time-colon">:</span>
+              <select id="end-minute" aria-label="End minute"></select>
+            </div>
           </div>
         </div>
+        <label id="pro-break-toggle-row" class="site-toggle-label hidden" style="margin: 8px 0 4px;">
+          <input type="checkbox" id="break-enabled-toggle">
+          <span class="site-toggle-text" data-i18n="breakEnabled">ENABLE BREAK WINDOW</span>
+        </label>
+        <div id="pro-break-time-row" class="schedule-time hidden">
+          <div class="time-input">
+            <span class="time-label" data-i18n="breakStart">BREAK START</span>
+            <div class="time-picker" id="break-start-time-picker">
+              <select id="break-start-hour" aria-label="Break start hour"></select>
+              <span class="time-colon">:</span>
+              <select id="break-start-minute" aria-label="Break start minute"></select>
+            </div>
+          </div>
+          <div class="time-separator" data-i18n="to">TO</div>
+          <div class="time-input">
+            <span class="time-label" data-i18n="breakEnd">BREAK END</span>
+            <div class="time-picker" id="break-end-time-picker">
+              <select id="break-end-hour" aria-label="Break end hour"></select>
+              <span class="time-colon">:</span>
+              <select id="break-end-minute" aria-label="Break end minute"></select>
+            </div>
+          </div>
+        </div>
+        <p id="schedule-tz-note" class="schedule-lock-note">
+          Lock schedule follows your local time zone.
+        </p>
         <p id="schedule-lock-note" class="schedule-lock-note hidden" data-i18n="scheduleLockNote">
           FREE: Switch schedule with WEEKDAYS / EVERYDAY. Day and time are locked.
         </p>

@@ -60,6 +60,102 @@ host_permissions (http://*/*, https://*/*): ユーザーが閲覧中のHTTP/HTTP
 - [ ] 必要なら日本語版説明文も確定
 - [ ] Free/Pro差分、トライアル条件を実装と一致させる
 
+### コピペ用: Short Description（英語 / 132文字以内）
+
+```text
+Block distracting sites and unlock them with a quick phone workout. Scan a QR code, move, and get back to focused work.
+```
+
+### コピペ用: Short Description（日本語案）
+
+```text
+気が散るサイトを一時ブロック。スマホでQRを読み、短い運動を完了すると解除できる集中支援ツールです。
+```
+
+### コピペ用: Detailed Description（英語）
+
+```text
+THE TOLL helps you interrupt doomscrolling with a physical “reset.”
+
+When a blocked site is opened, the extension shows a lock screen with a QR code. Scan it with your phone, complete a short exercise, and the page unlocks for a limited time.
+
+How it works
+- Open a blocked site on your computer
+- Scan the QR code with your phone
+- Complete the exercise challenge
+- Return to your browser with temporary access restored
+
+What you can control
+- Block popular distracting sites
+- Add your own domains (Pro)
+- Optional adult-site blocking (available on Free and Pro)
+- Lock schedules for when protection is active
+- Unlock presets (reps + unlock duration)
+
+Free plan
+- Up to 5 blocked preset sites
+- Squat challenge on mobile
+- Fixed unlock presets (SHORT / LONG)
+- Basic schedule mode (WEEKDAYS / EVERYDAY)
+
+Pro / Trial features
+- Push-up and sit-up challenges on mobile
+- Custom domains
+- Custom unlock durations (Custom A / B presets)
+- Advanced schedule controls (editable times / presets / break window)
+
+Account & trial
+- Google sign-in is used for account and plan sync
+- New accounts can start a 14-day free trial (no card required)
+- After trial, a Pro subscription is required to continue Pro features
+
+Notes
+- Works on HTTP/HTTPS pages
+- Designed to help reduce distraction by adding a short movement step before access
+```
+
+### コピペ用: Detailed Description（日本語案）
+
+```text
+THE TOLL は、スマホでの短い運動を「通行料」にして、だらだら閲覧を中断するための拡張機能です。
+
+ブロック対象サイトを開くと、PC側にQRコード付きのロック画面を表示します。スマホでQRを読み取り、短い運動を完了すると、一定時間だけサイトを再び閲覧できます。
+
+使い方
+- PCでブロック対象サイトを開く
+- 表示されたQRコードをスマホで読み取る
+- 運動チャレンジを完了する
+- 一定時間、サイトの閲覧を再開
+
+主な機能
+- よく使われる誘惑サイトのブロック
+- 独自ドメインの追加（Pro）
+- アダルトサイトブロック（Free / Pro 共通）
+- ロックスケジュール設定
+- 解除プリセット（回数 + 解除時間）
+
+Freeプラン
+- ブロック可能なプリセットサイトは最大5件
+- スマホ運動はスクワットのみ
+- 解除プリセットは固定（SHORT / LONG）
+- スケジュールは簡易モード（平日 / 毎日）
+
+Pro / トライアル機能
+- スマホ運動で腕立て伏せ / 腹筋に対応
+- カスタムドメイン追加
+- カスタム解除時間（Custom A / B）
+- 高度なスケジュール設定（時間編集 / プリセット / 休憩時間）
+
+アカウント / トライアル
+- Googleログインでアカウント・プラン状態を同期
+- 新規アカウントは14日間の無料トライアルを開始可能（カード登録不要）
+- トライアル終了後、Pro機能の継続利用にはPro登録が必要です
+
+補足
+- HTTP/HTTPSページで動作します
+- 閲覧前に短い運動を挟むことで、集中の立て直しをサポートします
+```
+
 ## 6. ポリシー・法務
 
 - [ ] Privacy Policy URLを用意（公開アクセス可）

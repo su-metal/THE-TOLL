@@ -21,13 +21,17 @@ console.log('[THE TOLL] Content script loaded: ' + window.location.href);
   let reLockTimer = null;
   let countdownHUD = null;
   const FREE_MAX_SITES = 5;
-  const FREE_FIXED_DURATION_MIN = 20;
-  const FREE_MIN_REPS = 5;
-  const FREE_MAX_REPS = 30;
+  const FREE_MIN_REPS = 20;
+  const FREE_MAX_REPS = 40;
   let isProUser = false;
   let lastEntitlementFetch = 0;
   let activeSessionGraceDurationMin = null;
   let currentUiLang = 'en';
+  const PRO_EXERCISE_REPS_PER_MIN = {
+    squat: 2.0,
+    pushup: 1.2,
+    situp: 1.5,
+  };
   const LOCK_UI_TEXT = {
     ja: {
       topMarquee: 'REFRESH RITUAL // UPDATE YOURSELF // 脳をリフレッシュしよう // BOOST YOUR ENERGY // 最高の集中への儀式 // RESET & RECHARGE //',
@@ -38,9 +42,13 @@ console.log('[THE TOLL] Content script loaded: ' + window.location.href);
       preparing: 'セッションを準備中...',
       sessionIdLabel: 'セッションID',
       rebootGoalLabel: '目標回数',
+      rebootGoalLabelPro: '目標回数（種目別）',
       modeLabel: 'モード',
       messageLabel: 'メッセージ',
       goalUnit: '回',
+      goalExerciseSquat: 'スクワット',
+      goalExercisePushup: '腕立て',
+      goalExerciseSitup: '腹筋',
       mode: 'リフレッシュして戻る',
       message: '身体を動かして脳をリセット。リフレッシュした状態で休憩を楽しみ、最高の状態で仕事に戻りましょう！',
       bottomMarquee: 'ENJOY YOUR BREAK // 休憩の後はもっと最高の集中を // DO IT FOR YOURSELF // 次のピークへ // BE THE BEST VERSION OF YOU //',
@@ -61,9 +69,13 @@ console.log('[THE TOLL] Content script loaded: ' + window.location.href);
       preparing: 'PREPARING YOUR SESSION...',
       sessionIdLabel: 'SESSION ID',
       rebootGoalLabel: 'REBOOT GOAL',
+      rebootGoalLabelPro: 'GOALS BY EXERCISE',
       modeLabel: 'MODE',
       messageLabel: 'MESSAGE',
       goalUnit: 'REBOOTS',
+      goalExerciseSquat: 'SQUAT',
+      goalExercisePushup: 'PUSH-UP',
+      goalExerciseSitup: 'SIT-UP',
       mode: 'REFRESH & RETURN',
       message: 'Move your body to reset your brain. Take a real break, then get back to work at your best.',
       bottomMarquee: 'ENJOY YOUR BREAK // LOCK IN DEEPER FOCUS AFTER THE BREAK // DO IT FOR YOURSELF // ON TO YOUR NEXT PEAK // BE THE BEST VERSION OF YOU //',
@@ -155,6 +167,56 @@ console.log('[THE TOLL] Content script loaded: ' + window.location.href);
     return getLockTextByLang(lang);
   }
 
+  function computeExerciseGoalsByDuration(durationMin) {
+    const n = Number(durationMin);
+    if (!Number.isFinite(n) || n <= 0) return null;
+    const d = Math.max(1, Math.round(n));
+    return {
+      squat: Math.max(1, Math.ceil(d * PRO_EXERCISE_REPS_PER_MIN.squat)),
+      pushup: Math.max(1, Math.ceil(d * PRO_EXERCISE_REPS_PER_MIN.pushup)),
+      situp: Math.max(1, Math.ceil(d * PRO_EXERCISE_REPS_PER_MIN.situp)),
+    };
+  }
+
+  function buildProGoalMarkup(uiText, durationMin) {
+    const goals = computeExerciseGoalsByDuration(durationMin);
+    if (!goals) return null;
+    const rows = [
+      [uiText.goalExerciseSquat || 'SQUAT', goals.squat],
+      [uiText.goalExercisePushup || 'PUSH-UP', goals.pushup],
+      [uiText.goalExerciseSitup || 'SIT-UP', goals.situp],
+    ];
+    return rows.map(([label, count]) =>
+      `<span style="display:flex; justify-content:space-between; gap:12px; font-size:1.18rem; line-height:1.2; margin-bottom:6px;">` +
+      `<span style="font-weight:800;">${label}</span><span style="font-weight:900; font-size:1.24rem;">${count}</span>` +
+      `</span>`
+    ).join('');
+  }
+
+  function applyOverlayGoalDisplay(shadow, uiText, targetCount, durationMin) {
+    const labelEl = shadow.getElementById('toll-reboot-goal-label');
+    const targetEl =
+      shadow.getElementById('toll-target-count') ||
+      shadow.querySelector('.scs-stat-stack .scs-stat-item-large:nth-child(2) .scs-stat-val');
+    if (!targetEl) return;
+
+    const proGoalMarkup = isProUser ? buildProGoalMarkup(uiText, durationMin) : null;
+    if (proGoalMarkup) {
+      if (labelEl) labelEl.textContent = uiText.rebootGoalLabelPro || uiText.rebootGoalLabel;
+      targetEl.innerHTML = proGoalMarkup;
+      targetEl.style.fontSize = '1.22rem';
+      targetEl.style.lineHeight = '1.2';
+      targetEl.style.whiteSpace = 'normal';
+      return;
+    }
+
+    if (labelEl) labelEl.textContent = uiText.rebootGoalLabel;
+    targetEl.textContent = `${targetCount} ${uiText.goalUnit}`;
+    targetEl.style.fontSize = '2.2rem';
+    targetEl.style.lineHeight = '';
+    targetEl.style.whiteSpace = '';
+  }
+
   async function applyOverlayLanguage(lang) {
     const nextLang = lang === 'ja' ? 'ja' : 'en';
     currentUiLang = nextLang;
@@ -184,8 +246,6 @@ console.log('[THE TOLL] Content script loaded: ' + window.location.href);
     if (scanSub) scanSub.textContent = t.scanSub;
     const sessionIdLabel = shadow.getElementById('toll-session-id-label');
     if (sessionIdLabel) sessionIdLabel.textContent = t.sessionIdLabel;
-    const rebootGoalLabel = shadow.getElementById('toll-reboot-goal-label');
-    if (rebootGoalLabel) rebootGoalLabel.textContent = t.rebootGoalLabel;
     const modeLabel = shadow.getElementById('toll-mode-label');
     if (modeLabel) modeLabel.textContent = t.modeLabel;
     const modeVal = shadow.getElementById('toll-mode-value');
@@ -197,10 +257,10 @@ console.log('[THE TOLL] Content script loaded: ' + window.location.href);
     const relockLabel = document.querySelector('.toll-countdown-hud .hud-label');
     if (relockLabel) relockLabel.textContent = t.relockSequence;
 
-    const latest = await chrome.storage.local.get('target_squat_count');
+    const latest = await chrome.storage.local.get(['target_squat_count', 'lock_duration_min']);
     const targetCount = getEffectiveTargetCount(latest.target_squat_count);
-    const targetEl = shadow.getElementById('toll-target-count');
-    if (targetEl) targetEl.textContent = `${targetCount} ${t.goalUnit}`;
+    const durationMin = getEffectiveDurationMin(latest.lock_duration_min);
+    applyOverlayGoalDisplay(shadow, t, targetCount, durationMin);
 
     const statusEl = shadow.querySelector('.toll-status');
     if (statusEl) {
@@ -224,16 +284,47 @@ console.log('[THE TOLL] Content script loaded: ' + window.location.href);
   }
 
   function getEffectiveDurationMin(rawValue) {
-    const raw = Number(rawValue) || 30;
-    return isProUser
-      ? raw
-      : FREE_FIXED_DURATION_MIN;
+    const raw = Number(rawValue);
+    if (isProUser) {
+      const normalized = Number.isFinite(raw) ? raw : 20;
+      return Math.max(10, Math.min(30, Math.round(normalized)));
+    }
+    if (!Number.isFinite(raw)) return 20;
+    return raw <= 15 ? 10 : 20;
   }
 
   function setActiveSessionGraceDuration(rawValue) {
     const effective = getEffectiveDurationMin(rawValue);
     activeSessionGraceDurationMin = effective;
     return effective;
+  }
+
+  function buildSmartphoneAppUrl(sessionId, targetCount, durationMin, deviceId) {
+    const qp = new URLSearchParams();
+    qp.set('session', sessionId);
+    if (Number.isFinite(Number(targetCount)) && Number(targetCount) > 0) {
+      qp.set('target', String(Math.round(Number(targetCount))));
+    }
+    if (Number.isFinite(Number(durationMin)) && Number(durationMin) > 0) {
+      qp.set('duration', String(Math.round(Number(durationMin))));
+    }
+    if (deviceId) {
+      qp.set('device', String(deviceId));
+    }
+    return `${SMARTPHONE_APP_URL}?${qp.toString()}`;
+  }
+
+  async function getQrDeviceIdIfPcLoggedIn() {
+    if (!isExtensionContextValid()) return '';
+    try {
+      const data = await chrome.storage.local.get(['toll_auth_logged_in']);
+      if (data?.toll_auth_logged_in !== true) {
+        return '';
+      }
+      return await getOrCreateDeviceId();
+    } catch (_) {
+      return '';
+    }
   }
 
   async function refreshEntitlement(force = false) {
@@ -312,7 +403,11 @@ console.log('[THE TOLL] Content script loaded: ' + window.location.href);
       const allSites = [...blockedSites, ...customSites];
       const isManualBlocked = allSites.some(siteStr => {
         const domains = siteStr.split(',');
-        return domains.some(domain => currentHost.includes(domain.trim()));
+        return domains.some((domain) => {
+          const normalized = domain.trim().toLowerCase();
+          if (!normalized) return false;
+          return currentHost === normalized || currentHost.endsWith(`.${normalized}`);
+        });
       });
   
       if (isManualBlocked) return true;
@@ -413,16 +508,17 @@ console.log('[THE TOLL] Content script loaded: ' + window.location.href);
     }
   }
 
-  // ブロック時の警告音（重厚な警告音）
+  // ブロック時の警告音（短い下降チャイム）
   function playSoundBlock() {
     if (!audioContext) {
       initAudio();
       if (!audioContext) return;
     }
     
-    // 低い警告音を2回
-    playTone(150, 0.3, 'sawtooth', 0.15);
-    setTimeout(() => playTone(100, 0.4, 'sawtooth', 0.15), 300);
+    // きついビープ感を避けるため、柔らかい波形で短く下降させる
+    playTone(392, 0.12, 'triangle', 0.10); // G4
+    setTimeout(() => playTone(330, 0.16, 'triangle', 0.12), 110); // E4
+    setTimeout(() => playTone(196, 0.28, 'sine', 0.14), 240); // G3
   }
 
   // ============================================
@@ -460,15 +556,14 @@ console.log('[THE TOLL] Content script loaded: ' + window.location.href);
     const overlay = document.createElement('div');
     overlay.id = 'toll-overlay';
     
-    const settings = await chrome.storage.local.get('target_squat_count');
+    const settings = await chrome.storage.local.get(['target_squat_count', 'lock_duration_min']);
     const targetCount = getEffectiveTargetCount(settings.target_squat_count);
-    const durationData = await chrome.storage.local.get('lock_duration_min');
-    setActiveSessionGraceDuration(durationData.lock_duration_min);
+    const durationMin = setActiveSessionGraceDuration(settings.lock_duration_min);
     const uiLang = await getOverlayUiLang();
     currentUiLang = uiLang;
     const t = getLockTextByLang(uiLang);
-    const deviceId = await getOrCreateDeviceId();
-    const appUrl = `${SMARTPHONE_APP_URL}?session=${sessionId}&target=${targetCount}&device=${encodeURIComponent(deviceId)}`;
+    const qrDeviceId = await getQrDeviceIdIfPcLoggedIn();
+    const appUrl = buildSmartphoneAppUrl(sessionId, targetCount, durationMin, qrDeviceId);
     overlay.dataset.uiLang = uiLang;
     
     overlay.innerHTML = `
@@ -535,6 +630,7 @@ console.log('[THE TOLL] Content script loaded: ' + window.location.href);
     `;
     
     shadow.appendChild(overlay);
+    applyOverlayGoalDisplay(shadow, t, targetCount, durationMin);
     
     // ホストをページに挿入
     if (document.body) {
@@ -543,14 +639,6 @@ console.log('[THE TOLL] Content script loaded: ' + window.location.href);
       document.addEventListener('DOMContentLoaded', () => {
         document.body.appendChild(host);
       });
-    }
-    
-    // 背景画像の設定
-    try {
-      const bgImageUrl = chrome.runtime.getURL('images/bg-gym.png');
-      overlay.style.setProperty('--toll-bg-image', `url("${bgImageUrl}")`);
-    } catch (e) {
-      console.log('[THE TOLL] 背景画像の読み出しをスキップ');
     }
     
     // QRコード生成 (Shadow DOM内でも動作するように微調整が必要な場合がある)
@@ -573,7 +661,7 @@ console.log('[THE TOLL] Content script loaded: ' + window.location.href);
     return overlay;
   }
 
-  async function refreshActiveOverlayTarget(rawTargetValue) {
+  async function refreshActiveOverlayTarget(rawTargetValue, rawDurationValue) {
     const host = document.getElementById('toll-overlay-host');
     if (!host || !host.shadowRoot || !isLocked) return { ok: false, reason: 'no_active_lock' };
 
@@ -587,11 +675,9 @@ console.log('[THE TOLL] Content script loaded: ' + window.location.href);
     if (!sessionId) return { ok: false, reason: 'missing_session_id' };
 
     const targetCount = getEffectiveTargetCount(rawTargetValue);
+    const durationMin = setActiveSessionGraceDuration(rawDurationValue);
 
-    const targetEl =
-      shadow.getElementById('toll-target-count') ||
-      shadow.querySelector('.scs-stat-stack .scs-stat-item-large:nth-child(2) .scs-stat-val');
-    if (targetEl) targetEl.textContent = `${targetCount} ${uiText.goalUnit}`;
+    applyOverlayGoalDisplay(shadow, uiText, targetCount, durationMin);
 
     const noteStrong = shadow.querySelector('.scs-tech-note strong');
     if (noteStrong) noteStrong.textContent = `${uiText.messageLabel}:`;
@@ -601,8 +687,8 @@ console.log('[THE TOLL] Content script loaded: ' + window.location.href);
       return { ok: false, reason: 'missing_qr' };
     }
 
-    const deviceId = await getOrCreateDeviceId();
-    const appUrl = `${SMARTPHONE_APP_URL}?session=${sessionId}&target=${targetCount}&device=${encodeURIComponent(deviceId)}`;
+    const qrDeviceId = await getQrDeviceIdIfPcLoggedIn();
+    const appUrl = buildSmartphoneAppUrl(sessionId, targetCount, durationMin, qrDeviceId);
     qrcodeElement.innerHTML = '';
     new QRCode(qrcodeElement, {
       text: appUrl,
@@ -613,7 +699,7 @@ console.log('[THE TOLL] Content script loaded: ' + window.location.href);
       correctLevel: QRCode.CorrectLevel.M
     });
     debugLog(`Active session target updated: ${targetCount}`);
-    return { ok: true, sessionId, targetCount };
+    return { ok: true, sessionId, targetCount, graceMin: durationMin };
   }
 
   // ステータス更新
@@ -668,17 +754,8 @@ console.log('[THE TOLL] Content script loaded: ' + window.location.href);
       return;
     }
 
-    // 1. カウントダウンHUDの開始（再ロックの60秒前）
-    const countdownStartIn = Math.max(0, timeRemaining - 60 * 1000);
-    
-    // すでに残り1分を切っている場合は即座に表示
-    if (countdownStartIn === 0) {
-      startCountdownTimer(expirationTime);
-    } else {
-      setTimeout(() => {
-        startCountdownTimer(expirationTime);
-      }, countdownStartIn);
-    }
+    // 1. カウントダウンHUDを解除直後から表示
+    startCountdownTimer(expirationTime);
 
     // 2. 実際の再ロック
     reLockTimer = setTimeout(async () => {
@@ -689,6 +766,139 @@ console.log('[THE TOLL] Content script loaded: ' + window.location.href);
 
   let countdownInterval = null;
   let currentExpireTime = 0; // 現在表示中のタイマーの期限
+  let countdownDisplayMode = 'mini'; // full | mini | hidden
+  let countdownRestoreBtn = null;
+  let countdownHudPosition = null; // { left, top }
+
+  function clampToViewport(left, top, width, height, margin = 8) {
+    const vw = window.innerWidth || document.documentElement.clientWidth || 1280;
+    const vh = window.innerHeight || document.documentElement.clientHeight || 720;
+    const maxLeft = Math.max(margin, vw - width - margin);
+    const maxTop = Math.max(margin, vh - height - margin);
+    return {
+      left: Math.min(maxLeft, Math.max(margin, left)),
+      top: Math.min(maxTop, Math.max(margin, top)),
+    };
+  }
+
+  function applyCountdownHudPosition() {
+    if (!countdownHUD || !countdownHudPosition) return;
+    const rect = countdownHUD.getBoundingClientRect();
+    const clamped = clampToViewport(
+      countdownHudPosition.left,
+      countdownHudPosition.top,
+      rect.width || 220,
+      rect.height || 80
+    );
+    countdownHudPosition = clamped;
+    countdownHUD.style.left = `${clamped.left}px`;
+    countdownHUD.style.top = `${clamped.top}px`;
+    countdownHUD.style.right = 'auto';
+    countdownHUD.classList.add('user-positioned');
+  }
+
+  function makeElementDraggable(targetEl, handleEl) {
+    if (!targetEl || !handleEl || handleEl.dataset.dragBound === '1') return;
+    handleEl.dataset.dragBound = '1';
+    handleEl.style.touchAction = 'none';
+    handleEl.style.cursor = 'move';
+
+    handleEl.addEventListener('pointerdown', (ev) => {
+      if (ev.button !== undefined && ev.button !== 0) return;
+      if (ev.target && ev.target.closest && ev.target.closest('.hud-control-btn')) return;
+      ev.preventDefault();
+
+      const rect = targetEl.getBoundingClientRect();
+      const offsetX = ev.clientX - rect.left;
+      const offsetY = ev.clientY - rect.top;
+      targetEl.classList.add('dragging');
+      try { handleEl.setPointerCapture(ev.pointerId); } catch (_) {}
+
+      const onMove = (moveEv) => {
+        const rawLeft = moveEv.clientX - offsetX;
+        const rawTop = moveEv.clientY - offsetY;
+        const clamped = clampToViewport(
+          rawLeft,
+          rawTop,
+          rect.width || targetEl.offsetWidth || 220,
+          rect.height || targetEl.offsetHeight || 80
+        );
+        countdownHudPosition = clamped;
+        targetEl.style.left = `${clamped.left}px`;
+        targetEl.style.top = `${clamped.top}px`;
+        targetEl.style.right = 'auto';
+        targetEl.classList.add('user-positioned');
+      };
+
+      const onUp = () => {
+        targetEl.classList.remove('dragging');
+        document.removeEventListener('pointermove', onMove);
+        document.removeEventListener('pointerup', onUp);
+        document.removeEventListener('pointercancel', onUp);
+      };
+
+      document.addEventListener('pointermove', onMove);
+      document.addEventListener('pointerup', onUp);
+      document.addEventListener('pointercancel', onUp);
+    });
+  }
+
+  function removeCountdownRestoreButton() {
+    if (countdownRestoreBtn) {
+      countdownRestoreBtn.remove();
+      countdownRestoreBtn = null;
+    }
+  }
+
+  function showCountdownRestoreButton() {
+    if (countdownRestoreBtn) return;
+    countdownRestoreBtn = document.createElement('button');
+    countdownRestoreBtn.type = 'button';
+    countdownRestoreBtn.className = 'toll-countdown-restore';
+    const isJa = currentUiLang === 'ja';
+    countdownRestoreBtn.textContent = isJa ? 'タイマー' : 'TIMER';
+    countdownRestoreBtn.title = isJa ? 'タイマーを表示' : 'Show timer';
+    countdownRestoreBtn.addEventListener('click', () => {
+      countdownDisplayMode = 'mini';
+      applyCountdownMode(currentExpireTime);
+    });
+    document.body.appendChild(countdownRestoreBtn);
+    makeElementDraggable(countdownRestoreBtn, countdownRestoreBtn);
+  }
+
+  function applyCountdownMode(expireTime) {
+    if (!countdownHUD) return;
+    const remaining = Math.floor((expireTime - Date.now()) / 1000);
+    const withinLastMinute = remaining <= 60;
+
+    if (withinLastMinute) {
+      countdownHUD.classList.remove('mini', 'hidden-user');
+      countdownDisplayMode = 'full';
+      removeCountdownRestoreButton();
+      return;
+    }
+
+    countdownHUD.classList.remove('mini', 'hidden-user');
+    if (countdownDisplayMode === 'mini') {
+      countdownHUD.classList.add('mini');
+      removeCountdownRestoreButton();
+      return;
+    }
+    if (countdownDisplayMode === 'hidden') {
+      countdownHUD.classList.add('hidden-user');
+      showCountdownRestoreButton();
+      return;
+    }
+    removeCountdownRestoreButton();
+  }
+
+  function clearCountdownUi() {
+    if (countdownHUD) { countdownHUD.remove(); countdownHUD = null; }
+    if (countdownInterval) { clearInterval(countdownInterval); countdownInterval = null; }
+    removeCountdownRestoreButton();
+    countdownDisplayMode = 'mini';
+    currentExpireTime = 0;
+  }
 
   // カウントダウンHUDの管理
   function startCountdownTimer(expireTime) {
@@ -699,17 +909,46 @@ console.log('[THE TOLL] Content script loaded: ' + window.location.href);
 
     if (countdownHUD) countdownHUD.remove();
     if (countdownInterval) clearInterval(countdownInterval);
+    removeCountdownRestoreButton();
     
     currentExpireTime = expireTime; // 期限を記憶
+    const remainingAtStart = Math.floor((expireTime - Date.now()) / 1000);
+    if (remainingAtStart > 60 && countdownDisplayMode === 'full') {
+      countdownDisplayMode = 'mini';
+    }
 
     countdownHUD = document.createElement('div');
     const t = getLockTextByLang(currentUiLang);
     countdownHUD.className = 'toll-countdown-hud';
     countdownHUD.innerHTML = `
-      <div class="hud-label">${t.relockSequence}</div>
+      <div class="hud-head">
+        <div class="hud-label">${t.relockSequence}</div>
+        <div class="hud-controls">
+          <button type="button" class="hud-control-btn" data-mode="mini" title="${currentUiLang === 'ja' ? '最小化' : 'Minimize'}">_</button>
+          <button type="button" class="hud-control-btn" data-mode="hidden" title="${currentUiLang === 'ja' ? '非表示' : 'Hide'}">×</button>
+        </div>
+      </div>
       <div class="hud-timer"><span id="hud-min">00</span>:<span id="hud-sec">00</span></div>
     `;
+    countdownHUD.querySelectorAll('.hud-control-btn').forEach((btn) => {
+      btn.addEventListener('pointerdown', (e) => e.stopPropagation());
+      btn.addEventListener('click', () => {
+        const mode = btn.dataset.mode;
+        if (mode === 'mini') {
+          countdownDisplayMode = countdownDisplayMode === 'mini' ? 'full' : 'mini';
+          applyCountdownMode(currentExpireTime);
+          return;
+        }
+        if (mode === 'hidden') {
+          countdownDisplayMode = 'hidden';
+          applyCountdownMode(currentExpireTime);
+        }
+      });
+    });
     document.body.appendChild(countdownHUD);
+    const dragHandle = countdownHUD.querySelector('.hud-head') || countdownHUD;
+    makeElementDraggable(countdownHUD, dragHandle);
+    applyCountdownHudPosition();
 
     // 初回即時更新
     updateTimerDisplay(expireTime);
@@ -724,12 +963,14 @@ console.log('[THE TOLL] Content script loaded: ' + window.location.href);
       const remaining = Math.floor((expireTime - now) / 1000);
 
       if (remaining <= 0) {
-        if (countdownInterval) clearInterval(countdownInterval);
-        if (countdownHUD) countdownHUD.remove();
+        clearCountdownUi();
         return;
       }
 
-      if (countdownHUD && remaining <= 10) countdownHUD.classList.add('warning');
+      if (countdownHUD) {
+        countdownHUD.classList.toggle('warning', remaining <= 10);
+      }
+      applyCountdownMode(expireTime);
 
       const m = Math.floor(remaining / 60).toString().padStart(2, '0');
       const s = (remaining % 60).toString().padStart(2, '0');
@@ -904,8 +1145,10 @@ console.log('[THE TOLL] Content script loaded: ' + window.location.href);
           ? Number(message.graceMin)
           : fallbackSettings.lock_duration_min;
 
-        const applyResult = await refreshActiveOverlayTarget(targetRaw);
-        const effectiveGraceMin = setActiveSessionGraceDuration(graceRaw);
+        const applyResult = await refreshActiveOverlayTarget(targetRaw, graceRaw);
+        const effectiveGraceMin = Number.isFinite(Number(applyResult?.graceMin))
+          ? Number(applyResult.graceMin)
+          : setActiveSessionGraceDuration(graceRaw);
         await checkAndApplyState();
         const lockedNow = !!document.getElementById('toll-overlay-host');
 
@@ -971,8 +1214,7 @@ console.log('[THE TOLL] Content script loaded: ' + window.location.href);
         isLocked = false;
         stopVideoMonitor();
         if (reLockTimer) { clearTimeout(reLockTimer); reLockTimer = null; }
-        if (countdownHUD) { countdownHUD.remove(); countdownHUD = null; }
-        if (countdownInterval) { clearInterval(countdownInterval); countdownInterval = null; }
+        clearCountdownUi();
         const host = document.getElementById('toll-overlay-host');
         if (host) host.remove();
       }
@@ -991,9 +1233,7 @@ console.log('[THE TOLL] Content script loaded: ' + window.location.href);
       const lastUnlock = data.last_global_unlock_time || 0;
       const storedExpire = Number(data.last_global_unlock_expires_at || 0);
       const rawDuration = data.lock_duration_min || 30;
-      const durationMin = isProUser
-        ? rawDuration
-        : FREE_FIXED_DURATION_MIN;
+      const durationMin = getEffectiveDurationMin(rawDuration);
       const fallbackDurationMs = durationMin * 60 * 1000;
       const fallbackExpire = lastUnlock > 0 ? (lastUnlock + fallbackDurationMs) : 0;
       const expirationTime = storedExpire > 0 ? storedExpire : fallbackExpire;
@@ -1012,8 +1252,7 @@ console.log('[THE TOLL] Content script loaded: ' + window.location.href);
         activeSessionGraceDurationMin = null;
         unlockNow(); 
         if (reLockTimer) { clearTimeout(reLockTimer); reLockTimer = null; }
-        if (countdownHUD) { countdownHUD.remove(); countdownHUD = null; }
-        if (countdownInterval) { clearInterval(countdownInterval); countdownInterval = null; }
+        clearCountdownUi();
         return;
       }
 
@@ -1048,6 +1287,24 @@ console.log('[THE TOLL] Content script loaded: ' + window.location.href);
   }
 
   // スケジュール内かどうかをチェック
+  const MIN_SCHEDULE_SPAN_MIN = 15;
+
+  function timeStrToMinutes(value) {
+    const m = /^(\d{2}):(\d{2})$/.exec(String(value || ''));
+    if (!m) return null;
+    const hh = Number(m[1]);
+    const mm = Number(m[2]);
+    if (!Number.isFinite(hh) || !Number.isFinite(mm)) return null;
+    return hh * 60 + mm;
+  }
+
+  function isWithinTimeRange(currentTimeStr, start, end) {
+    if (!start || !end) return true;
+    // No date concept: end earlier than start is invalid.
+    if (end < start) return false;
+    return currentTimeStr >= start && currentTimeStr <= end;
+  }
+
   async function isWithinSchedule() {
     const data = await chrome.storage.local.get('lock_schedule');
     const schedule = data.lock_schedule;
@@ -1061,13 +1318,29 @@ console.log('[THE TOLL] Content script loaded: ' + window.location.href);
     // 時間帯未設定なら曜日のみで判定（Free互換）
     if (!schedule.start || !schedule.end) return true;
 
+    const lockStartMin = timeStrToMinutes(schedule.start);
+    const lockEndMin = timeStrToMinutes(schedule.end);
+    if (lockStartMin === null || lockEndMin === null) return false;
+    if ((lockEndMin - lockStartMin) < MIN_SCHEDULE_SPAN_MIN) return false;
+
     const currentTimeStr = now.getHours().toString().padStart(2, '0') + ":" + now.getMinutes().toString().padStart(2, '0');
     
-    if (schedule.start <= schedule.end) {
-      return currentTimeStr >= schedule.start && currentTimeStr <= schedule.end;
-    } else {
-      return currentTimeStr >= schedule.start || currentTimeStr <= schedule.end;
+    const insideLockRange = isWithinTimeRange(currentTimeStr, schedule.start, schedule.end);
+    if (!insideLockRange) return false;
+
+    const hasBreakRange = schedule.breakEnabled === true && !!schedule.breakStart && !!schedule.breakEnd;
+    if (hasBreakRange) {
+      const breakStartMin = timeStrToMinutes(schedule.breakStart);
+      const breakEndMin = timeStrToMinutes(schedule.breakEnd);
+      if (breakStartMin === null || breakEndMin === null) return true;
+      if (breakEndMin < breakStartMin) return true;
+      if ((breakEndMin - breakStartMin) < MIN_SCHEDULE_SPAN_MIN) return true;
+      if (breakStartMin < lockStartMin || breakEndMin > lockEndMin) return true;
+      const insideBreakRange = isWithinTimeRange(currentTimeStr, schedule.breakStart, schedule.breakEnd);
+      if (insideBreakRange) return false;
     }
+
+    return true;
   }
 
   // 詳細な診断ログ
@@ -1083,9 +1356,7 @@ console.log('[THE TOLL] Content script loaded: ' + window.location.href);
     const lastUnlock = data.last_global_unlock_time || 0;
     const storedExpire = Number(data.last_global_unlock_expires_at || 0);
     const rawDuration = data.lock_duration_min || 30;
-    const durationMin = isProUser
-      ? rawDuration
-      : FREE_FIXED_DURATION_MIN;
+    const durationMin = getEffectiveDurationMin(rawDuration);
     const fallbackDurationMs = durationMin * 60 * 1000;
     const fallbackExpire = lastUnlock > 0 ? (lastUnlock + fallbackDurationMs) : 0;
     const expirationTime = storedExpire > 0 ? storedExpire : fallbackExpire;

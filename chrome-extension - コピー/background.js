@@ -1,11 +1,14 @@
 const BILLING_RETURN_HOST = "smartphone-app-pi.vercel.app";
-const BILLING_RETURN_PATH = "/billing-return.html";
+const EXTENSION_BILLING_PATHS = new Set([
+  "/billing-return.html",
+  "/pricing.html",
+]);
 
 function isExtensionBillingReturn(urlString) {
   try {
     const u = new URL(urlString);
     if (u.hostname !== BILLING_RETURN_HOST) return false;
-    if (u.pathname !== BILLING_RETURN_PATH) return false;
+    if (!EXTENSION_BILLING_PATHS.has(u.pathname)) return false;
     const source = (u.searchParams.get("source") || "").toLowerCase();
     return source === "extension";
   } catch (_) {
@@ -47,16 +50,14 @@ function buildBillingFeedback(urlString) {
   }
 }
 
-chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
-  const url = changeInfo.url;
+chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+  const url = changeInfo.url || (changeInfo.status === "complete" ? tab?.url : "");
   if (!url) return;
   if (!isExtensionBillingReturn(url)) return;
   const feedback = buildBillingFeedback(url);
-  if (feedback) {
-    chrome.storage.local.set({ toll_billing_feedback: feedback }, () => {
-      chrome.tabs.remove(tabId, () => void chrome.runtime.lastError);
-    });
-    return;
-  }
-  chrome.tabs.remove(tabId, () => void chrome.runtime.lastError);
+  if (!feedback) return;
+  chrome.storage.local.set({ toll_billing_feedback: feedback }, () => {
+    chrome.runtime.sendMessage({ type: "TOLL_BILLING_FEEDBACK", feedback }, () => void chrome.runtime.lastError);
+    chrome.tabs.remove(tabId, () => void chrome.runtime.lastError);
+  });
 });

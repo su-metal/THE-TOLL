@@ -1,8 +1,10 @@
 document.addEventListener('DOMContentLoaded', async () => {
   const SETTINGS_WINDOW_ID_KEY = 'toll_settings_window_id';
+  const AUTH_LOGGED_IN_KEY = 'toll_auth_logged_in';
   const statusMsg = document.getElementById('status-msg');
   const settingsUnlockRemaining = document.getElementById('settings-unlock-remaining');
   const toastMsg = document.getElementById('toast-msg');
+  const blockedSitesToast = document.getElementById('blocked-sites-toast');
   const unlockBtn = document.getElementById('unlock-settings-btn');
   const upgradeBtn = document.getElementById('upgrade-btn');
   const applyCurrentLockBtn = document.getElementById('apply-current-lock-btn');
@@ -25,27 +27,36 @@ document.addEventListener('DOMContentLoaded', async () => {
   const returnToMissionBtn = document.getElementById('return-to-mission-btn');
   const unlockPresetOptions = document.getElementById('unlock-preset-options');
   const unlockActivePolicyEl = document.getElementById('unlock-active-policy');
+  const unlockPresetNote = document.getElementById('unlock-preset-note');
+  const unlockCustomDurationWrap = document.getElementById('unlock-custom-duration-wrap');
+  const unlockCustomDurationInput = document.getElementById('unlock-custom-duration');
+  const unlockCustomDurationValue = document.getElementById('unlock-custom-duration-value');
+  const scheduleTzNote = document.getElementById('schedule-tz-note');
   
   // スマホアプリのURL
   const SMARTPHONE_APP_URL = 'https://smartphone-app-pi.vercel.app/';
   const SUPABASE_URL = 'https://qcnzleiyekbgsiyomwin.supabase.co';
   const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFjbnpsZWl5ZWtiZ3NpeW9td2luIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg0Mjk2NzMsImV4cCI6MjA4NDAwNTY3M30.NlGUfxDPzMgtu_J0vX7FMe-ikxafboGh5GMr-tsaLfI';
   const FREE_MAX_SITES = 5;
+  const PRO_MAX_SITES = 50;
   const DEFAULT_BLOCKED_SITES_BY_LANG = {
     en: ['youtube.com', 'twitter.com,x.com', 'instagram.com', 'tiktok.com', 'reddit.com'],
     ja: ['youtube.com', 'twitter.com,x.com', 'instagram.com', 'tiktok.com', 'netflix.com'],
   };
   const UNLOCK_PRESETS = {
-    light: { id: 'light', label: 'LIGHT', reps: 10, graceMin: 10 },
-    standard: { id: 'standard', label: 'STANDARD', reps: 20, graceMin: 20 },
-    hard: { id: 'hard', label: 'HARD', reps: 40, graceMin: 40 },
-    extreme: { id: 'extreme', label: 'EXTREME', reps: 60, graceMin: 60 },
+    short: { id: 'short', label: 'SHORT', reps: 20, graceMin: 10 },
+    long: { id: 'long', label: 'LONG', reps: 40, graceMin: 20 },
   };
-  const FREE_UNLOCK_PRESET_IDS = ['light', 'standard'];
-  const PRO_UNLOCK_PRESET_IDS = ['light', 'standard', 'hard', 'extreme'];
-  const DEFAULT_FREE_UNLOCK_PRESET_ID = 'standard';
-  const DEFAULT_PRO_UNLOCK_PRESET_ID = 'hard';
+  const FREE_UNLOCK_PRESET_IDS = ['short', 'long'];
+  const PRO_UNLOCK_PRESET_IDS = ['custom_a', 'custom_b'];
+  const DEFAULT_FREE_UNLOCK_PRESET_ID = 'long';
+  const DEFAULT_PRO_UNLOCK_PRESET_ID = 'custom_b';
   const UNLOCK_PRESET_ACTIVE_KEY = 'toll_unlock_preset_active';
+  const UNLOCK_CUSTOM_DURATION_A_KEY = 'toll_unlock_custom_duration_a_min';
+  const UNLOCK_CUSTOM_DURATION_B_KEY = 'toll_unlock_custom_duration_b_min';
+  const PRO_CUSTOM_DURATION_MIN = 10;
+  const PRO_CUSTOM_DURATION_MAX = 30;
+  const MIN_SCHEDULE_SPAN_MIN = 15;
   const SETTINGS_UNLOCK_REPS = 15;
   const SETTINGS_UNLOCK_WINDOW_MIN = 15;
   const SETTINGS_UNLOCK_WINDOW_MS = SETTINGS_UNLOCK_WINDOW_MIN * 60 * 1000;
@@ -70,6 +81,9 @@ document.addEventListener('DOMContentLoaded', async () => {
       portalError: 'PORTAL ERROR: {detail}',
       portalOpened: 'PORTAL OPENED',
       portalFailed: 'PORTAL FAILED',
+      portalOpening: 'OPENING SUBSCRIPTION PORTAL...',
+      portalBusy: 'SUBSCRIPTION PORTAL IS OPENING...',
+      portalTimeout: 'PORTAL TIMEOUT. PLEASE TRY AGAIN.',
       extLoginUnavailable: 'EXT LOGIN UNAVAILABLE. OPENING PHONE LOGIN...',
       loginPreparingOauth: 'LOGIN: PREPARING OAUTH URL...',
       loginSuccess: 'LOGIN SUCCESS',
@@ -103,6 +117,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       loginCallbackReceived: 'LOGIN: CALLBACK RECEIVED',
       proFeatureCustomDomains: 'PRO FEATURE: CUSTOM DOMAINS',
       freeLimitUpToSites: 'FREE LIMIT: UP TO {count} SITES',
+      proLimitUpToSites: 'PRO LIMIT: UP TO {count} SITES',
       missionStartFailed: 'MISSION START FAILED',
       lockResetReload: 'LOCK RESET - RELOAD TAB TO TEST',
       settingsSaved: 'SETTINGS SAVED',
@@ -113,10 +128,12 @@ document.addEventListener('DOMContentLoaded', async () => {
       settingsAccessRemaining: 'SETTINGS ACCESS LEFT: {minutes} MIN',
       settingsLockExpired: 'SETTINGS LOCK EXPIRED',
       unlockPreset: 'UNLOCK PRESET',
-      presetCooldownNote: 'Preset changes apply immediately after Settings Guard unlock.',
+      presetCooldownNote: 'FREE: SHORT/LONG fixed. PRO: use CUSTOM A/B (10-30 min each).',
       presetCurrentActive: 'ACTIVE: {name} ({reps} REPS / {minutes} MIN)',
       presetAppliedNow: 'PRESET APPLIED: {name} ({reps} REPS / {minutes} MIN)',
       proOnlyPresetLocked: 'PRO ONLY',
+      proCustomDuration: 'PRO CUSTOM DURATIONS',
+      proCustomDurationValue: '{minutes} MIN (SQUAT {squat} / SIT-UP {situp} / PUSH-UP {pushup})',
       subtitle: 'LOCK DURATION SETTINGS',
       authLogin: 'LOGIN WITH GOOGLE',
       authLogout: 'LOGOUT',
@@ -131,6 +148,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       addBtn: 'ADD',
       customDomainPlaceholder: 'e.g. news.google.com',
       lockSchedule: 'LOCK SCHEDULE',
+      scheduleTimezone: 'Lock schedule follows your local time zone: {tz}',
       weekdays: 'WEEKDAYS',
       everyday: 'EVERYDAY',
       presetA: 'PRESET A',
@@ -138,6 +156,15 @@ document.addEventListener('DOMContentLoaded', async () => {
       start: 'START',
       to: 'TO',
       end: 'END',
+      breakStart: 'BREAK START',
+      breakEnd: 'BREAK END',
+      breakEnabled: 'ENABLE BREAK WINDOW',
+      lockTimeOrderInvalid: 'END must be the same as or later than START.',
+      breakTimeOrderInvalid: 'BREAK END must be the same as or later than BREAK START.',
+      lockTimeMinSpanInvalid: `Lock window must be at least ${MIN_SCHEDULE_SPAN_MIN} minutes.`,
+      breakTimeMinSpanInvalid: `Break window must be at least ${MIN_SCHEDULE_SPAN_MIN} minutes.`,
+      breakTimeOutsideLockInvalid: 'Break window must be inside START-END.',
+      breakTimeRequiredInvalid: 'Break start/end are required when break window is enabled.',
       scheduleLockNote: 'FREE: Switch schedule with WEEKDAYS / EVERYDAY. Day and time are locked.',
       manageSubscription: 'MANAGE SUBSCRIPTION',
       upgradeToPro: 'UPGRADE TO PRO',
@@ -173,6 +200,9 @@ document.addEventListener('DOMContentLoaded', async () => {
       portalError: 'ポータルエラー: {detail}',
       portalOpened: 'ポータルを開きました',
       portalFailed: 'ポータル起動に失敗しました',
+      portalOpening: 'サブスク管理画面を開いています...',
+      portalBusy: 'サブスク管理画面を起動中です...',
+      portalTimeout: 'ポータル起動がタイムアウトしました。再試行してください。',
       extLoginUnavailable: '拡張ログイン不可。スマホログインを開きます...',
       loginPreparingOauth: 'ログイン: OAuth URLを準備中...',
       loginSuccess: 'ログイン成功',
@@ -206,6 +236,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       loginCallbackReceived: 'ログイン: コールバック受信',
       proFeatureCustomDomains: 'PRO機能: カスタムドメイン',
       freeLimitUpToSites: 'FREE上限: 最大{count}サイト',
+      proLimitUpToSites: 'PRO上限: 最大{count}サイト',
       missionStartFailed: 'ミッション開始に失敗しました',
       lockResetReload: 'ロックをリセットしました - タブをリロードしてください',
       settingsSaved: '設定を保存しました',
@@ -216,10 +247,12 @@ document.addEventListener('DOMContentLoaded', async () => {
       settingsAccessRemaining: '設定操作の残り時間: あと{minutes}分',
       settingsLockExpired: '設定の解除期限が切れました',
       unlockPreset: '解除プリセット',
-      presetCooldownNote: 'Settings Guard解除後、プリセット変更はすぐ反映されます。',
+      presetCooldownNote: 'FREE: SHORT/LONG固定。PRO: CUSTOM A/B（各10〜30分）を設定できます。',
       presetCurrentActive: '現在有効: {name}（{reps}回 / {minutes}分）',
       presetAppliedNow: 'プリセットを反映しました: {name}（{reps}回 / {minutes}分）',
       proOnlyPresetLocked: 'PRO専用',
+      proCustomDuration: 'PROカスタム時間',
+      proCustomDurationValue: '{minutes}分（スクワット{squat} / 腹筋{situp} / 腕立て{pushup}）',
       subtitle: 'ロック時間設定',
       authLogin: 'Googleでログイン',
       authLogout: 'ログアウト',
@@ -234,6 +267,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       addBtn: '追加',
       customDomainPlaceholder: '例: news.google.com',
       lockSchedule: 'ロックスケジュール',
+      scheduleTimezone: 'ロックスケジュールは端末の現地時刻で判定されます: {tz}',
       weekdays: '平日',
       everyday: '毎日',
       presetA: 'プリセットA',
@@ -241,6 +275,15 @@ document.addEventListener('DOMContentLoaded', async () => {
       start: '開始',
       to: '〜',
       end: '終了',
+      breakStart: '休憩開始',
+      breakEnd: '休憩終了',
+      breakEnabled: '休憩時間を有効にする',
+      lockTimeOrderInvalid: '終了時刻は開始時刻以降にしてください。',
+      breakTimeOrderInvalid: '休憩終了は休憩開始以降にしてください。',
+      lockTimeMinSpanInvalid: `ロック時間は最低${MIN_SCHEDULE_SPAN_MIN}分必要です。`,
+      breakTimeMinSpanInvalid: `休憩時間は最低${MIN_SCHEDULE_SPAN_MIN}分必要です。`,
+      breakTimeOutsideLockInvalid: '休憩時間は開始〜終了の範囲内で設定してください。',
+      breakTimeRequiredInvalid: '休憩時間を有効にする場合は開始・終了を設定してください。',
       scheduleLockNote: 'FREE: 平日/毎日のみ切替可。曜日と時間は固定です。',
       manageSubscription: 'サブスク管理',
       upgradeToPro: 'PROにアップグレード',
@@ -283,15 +326,32 @@ document.addEventListener('DOMContentLoaded', async () => {
   let entitlementRefreshInFlight = false;
   let entitlementRefreshPromise = null;
   let planUiReady = false;
+  let loggedOutDeviceDetached = false;
   let settingsMissionStarted = false;
   let isSettingsViewOnly = false;
   let toastTimer = null;
+  let blockedSitesToastTimer = null;
+  let lastBillingFeedbackAt = 0;
   let applyBtnStateInFlight = false;
   let currentLockTabId = null;
   let lastLockTabRecoveryAt = 0;
   let settingsUnlockWatchTimer = null;
   let settingsUnlockExpiresAtMs = 0;
   let activeUnlockPresetId = DEFAULT_FREE_UNLOCK_PRESET_ID;
+  let customUnlockDurationAMin = 10;
+  let customUnlockDurationBMin = 20;
+
+  function getActiveCustomDuration() {
+    return activeUnlockPresetId === 'custom_a'
+      ? clampCustomDuration(customUnlockDurationAMin)
+      : clampCustomDuration(customUnlockDurationBMin);
+  }
+
+  function setActiveCustomDuration(minutes) {
+    const m = clampCustomDuration(minutes);
+    if (activeUnlockPresetId === 'custom_a') customUnlockDurationAMin = m;
+    if (activeUnlockPresetId === 'custom_b') customUnlockDurationBMin = m;
+  }
 
   async function rememberSettingsWindowId() {
     try {
@@ -317,8 +377,24 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
     if (upgradeLoginNote) upgradeLoginNote.textContent = t('upgradeLoginNote');
     if (billingChangeNote) billingChangeNote.textContent = t('billingChangeNote');
+    if (scheduleTzNote) scheduleTzNote.textContent = t('scheduleTimezone', { tz: getLocalTimeZoneLabel() });
     if (langEnBtn) langEnBtn.classList.toggle('active', uiLang === 'en');
     if (langJaBtn) langJaBtn.classList.toggle('active', uiLang === 'ja');
+  }
+
+  function getLocalTimeZoneLabel() {
+    try {
+      const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      if (tz && typeof tz === 'string') return tz;
+    } catch (_) {
+      // no-op
+    }
+    const offsetMin = -new Date().getTimezoneOffset();
+    const sign = offsetMin >= 0 ? '+' : '-';
+    const abs = Math.abs(offsetMin);
+    const hh = String(Math.floor(abs / 60)).padStart(2, '0');
+    const mm = String(abs % 60).padStart(2, '0');
+    return `UTC${sign}${hh}:${mm}`;
   }
 
   function t(key, params = {}) {
@@ -331,8 +407,54 @@ document.addEventListener('DOMContentLoaded', async () => {
     return out;
   }
 
+  function clampCustomDuration(value) {
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed)) return 20;
+    return Math.max(PRO_CUSTOM_DURATION_MIN, Math.min(PRO_CUSTOM_DURATION_MAX, Math.round(parsed)));
+  }
+
+  function calculateSquatRepsByDuration(minutes) {
+    return Math.max(1, Math.round(Number(minutes) * 2));
+  }
+
+  function calculateSitupRepsByDuration(minutes) {
+    return Math.max(1, Math.ceil(Number(minutes) * 1.5));
+  }
+
+  function calculatePushupRepsByDuration(minutes) {
+    return Math.max(1, Math.ceil(Number(minutes) * 1.2));
+  }
+
+  function formatCustomDurationText(minutes) {
+    const m = clampCustomDuration(minutes);
+    return t('proCustomDurationValue', {
+      minutes: m,
+      squat: calculateSquatRepsByDuration(m),
+      situp: calculateSitupRepsByDuration(m),
+      pushup: calculatePushupRepsByDuration(m),
+    });
+  }
+
   function getPresetById(id) {
     const key = String(id || '').toLowerCase();
+    if (key === 'custom_a') {
+      const min = clampCustomDuration(customUnlockDurationAMin);
+      return {
+        id: 'custom_a',
+        label: 'CUSTOM A',
+        reps: calculateSquatRepsByDuration(min),
+        graceMin: min,
+      };
+    }
+    if (key === 'custom_b') {
+      const min = clampCustomDuration(customUnlockDurationBMin);
+      return {
+        id: 'custom_b',
+        label: 'CUSTOM B',
+        reps: calculateSquatRepsByDuration(min),
+        graceMin: min,
+      };
+    }
     return UNLOCK_PRESETS[key] || UNLOCK_PRESETS[DEFAULT_FREE_UNLOCK_PRESET_ID];
   }
 
@@ -348,6 +470,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     const active = getPresetById(activeUnlockPresetId);
     await chrome.storage.local.set({
       [UNLOCK_PRESET_ACTIVE_KEY]: active.id,
+      [UNLOCK_CUSTOM_DURATION_A_KEY]: clampCustomDuration(customUnlockDurationAMin),
+      [UNLOCK_CUSTOM_DURATION_B_KEY]: clampCustomDuration(customUnlockDurationBMin),
       toll_unlock_preset_pending: null,
       target_squat_count: active.reps,
       lock_duration_min: active.graceMin,
@@ -365,18 +489,39 @@ document.addEventListener('DOMContentLoaded', async () => {
       const card = input.nextElementSibling;
       if (card && card.querySelector('.preset-detail')) {
         const p = getPresetById(id);
-        const detail = uiLang === 'ja'
-          ? `${p.reps}回 / ${p.graceMin}分`
-          : `${p.reps} REPS / ${p.graceMin} MIN`;
+        const isCustomTab = id === 'custom_a' || id === 'custom_b';
+        const detail = isCustomTab
+          ? (uiLang === 'ja' ? `${p.graceMin}分` : `${p.graceMin} MIN`)
+          : (uiLang === 'ja' ? `${p.reps}回 / ${p.graceMin}分` : `${p.reps} REPS / ${p.graceMin} MIN`);
         card.querySelector('.preset-detail').textContent = detail;
         card.querySelector('.preset-name').textContent = p.label;
       }
       if (card) {
         card.title = isAllowed ? '' : t('proOnlyPresetLocked');
       }
+      const row = input.closest('.preset-option');
+      if (row?.classList) {
+        if (row.classList.contains('free-only')) row.classList.toggle('hidden', isProUser);
+        if (row.classList.contains('pro-only')) row.classList.toggle('hidden', !isProUser);
+      }
     });
 
     const activePreset = getPresetById(activeUnlockPresetId);
+    const showCustomControl = !!unlockCustomDurationWrap && isProUser;
+    if (unlockCustomDurationWrap) {
+      unlockCustomDurationWrap.classList.toggle('hidden', !showCustomControl);
+    }
+    if (unlockCustomDurationInput) {
+      unlockCustomDurationInput.value = String(getActiveCustomDuration());
+      unlockCustomDurationInput.disabled = !showCustomControl || !String(activeUnlockPresetId).startsWith('custom_');
+    }
+    if (unlockCustomDurationValue) {
+      const prefix = activeUnlockPresetId === 'custom_a' ? 'CUSTOM A: ' : (activeUnlockPresetId === 'custom_b' ? 'CUSTOM B: ' : '');
+      unlockCustomDurationValue.textContent = `${prefix}${formatCustomDurationText(getActiveCustomDuration())}`;
+    }
+    if (unlockPresetNote) {
+      unlockPresetNote.textContent = t('presetCooldownNote');
+    }
     if (unlockActivePolicyEl) {
       unlockActivePolicyEl.textContent = t('presetCurrentActive', {
         name: activePreset.label,
@@ -390,11 +535,15 @@ document.addEventListener('DOMContentLoaded', async () => {
   async function syncUnlockPresetState() {
     const data = await chrome.storage.local.get([
       UNLOCK_PRESET_ACTIVE_KEY,
+      UNLOCK_CUSTOM_DURATION_A_KEY,
+      UNLOCK_CUSTOM_DURATION_B_KEY,
       'toll_unlock_preset_pending',
       'target_squat_count',
       'lock_duration_min',
     ]);
     const allowed = new Set(getAllowedPresetIds());
+    customUnlockDurationAMin = clampCustomDuration(data?.[UNLOCK_CUSTOM_DURATION_A_KEY] ?? 10);
+    customUnlockDurationBMin = clampCustomDuration(data?.[UNLOCK_CUSTOM_DURATION_B_KEY] ?? 20);
     const defaultPreset = getDefaultPresetIdForPlan();
     const rawActive = String(data?.[UNLOCK_PRESET_ACTIVE_KEY] || '').toLowerCase();
     let nextActiveId = allowed.has(rawActive) ? rawActive : defaultPreset;
@@ -475,13 +624,44 @@ document.addEventListener('DOMContentLoaded', async () => {
     };
   }
 
+  function inferToastTone(message = '') {
+    const msg = String(message).toLowerCase();
+    if (
+      msg.includes('failed') ||
+      msg.includes('error') ||
+      msg.includes('失敗') ||
+      msg.includes('エラー') ||
+      msg.includes('timeout')
+    ) {
+      return 'error';
+    }
+    if (
+      msg.includes('completed') ||
+      msg.includes('success') ||
+      msg.includes('完了') ||
+      msg.includes('成功')
+    ) {
+      return 'success';
+    }
+    return 'info';
+  }
+
+  function showBillingFeedback(feedback) {
+    if (!feedback?.message) return;
+    const at = Number(feedback.at || 0);
+    if (at && at <= lastBillingFeedbackAt) return;
+    if (at) lastBillingFeedbackAt = at;
+    statusMsg.textContent = feedback.message;
+    showSavedStatus(5000);
+    showToast(feedback.message, 4200, inferToastTone(feedback.message));
+  }
+
   async function consumeBillingFeedback() {
     try {
       const data = await chrome.storage.local.get('toll_billing_feedback');
       const feedback = data?.toll_billing_feedback;
       if (!feedback?.message) return;
-      statusMsg.textContent = feedback.message;
-      showSavedStatus(5000);
+      showBillingFeedback(feedback);
       await chrome.storage.local.remove('toll_billing_feedback');
     } catch (_) {
       // Non-fatal: if storage read fails, continue without feedback message.
@@ -495,9 +675,18 @@ document.addEventListener('DOMContentLoaded', async () => {
       const wasPro = !!isProUser;
       const authEntitlement = await fetchEntitlementByAuth();
       if (authEntitlement) {
+        loggedOutDeviceDetached = false;
         entitlement = authEntitlement;
       } else {
+        if (!loggedOutDeviceDetached) {
+          await rotateLocalDeviceIdentityForLoggedOut();
+        }
         entitlement = getLoggedOutEntitlement();
+      }
+      try {
+        await chrome.storage.local.set({ [AUTH_LOGGED_IN_KEY]: !!authEntitlement });
+      } catch (_) {
+        // Non-fatal: QR fallback is handled conservatively in content script.
       }
       isProUser = !!entitlement.isPro;
       updateAuthUi();
@@ -560,15 +749,28 @@ document.addEventListener('DOMContentLoaded', async () => {
     chrome.storage.local.remove(SETTINGS_UNLOCK_EXPIRES_AT_KEY).catch(() => {});
   }
 
-  function showToast(message, durationMs = 2600) {
+  function showToast(message, durationMs = 2600, tone = 'info') {
     if (!toastMsg) return;
     if (toastTimer) clearTimeout(toastTimer);
     toastMsg.textContent = message;
+    toastMsg.classList.remove('toast-info', 'toast-success', 'toast-error');
+    const resolvedTone = tone === 'success' || tone === 'error' ? tone : 'info';
+    toastMsg.classList.add(`toast-${resolvedTone}`);
     toastMsg.classList.remove('hidden');
     requestAnimationFrame(() => toastMsg.classList.add('show'));
     toastTimer = setTimeout(() => {
       toastMsg.classList.remove('show');
       setTimeout(() => toastMsg.classList.add('hidden'), 190);
+    }, durationMs);
+  }
+
+  function showBlockedSitesToast(message, durationMs = 2600) {
+    if (!blockedSitesToast) return;
+    if (blockedSitesToastTimer) clearTimeout(blockedSitesToastTimer);
+    blockedSitesToast.textContent = message;
+    blockedSitesToast.classList.remove('hidden');
+    blockedSitesToastTimer = setTimeout(() => {
+      blockedSitesToast.classList.add('hidden');
     }, durationMs);
   }
 
@@ -697,6 +899,17 @@ document.addEventListener('DOMContentLoaded', async () => {
     return 'dev-' + Math.random().toString(36).slice(2, 12);
   }
 
+  async function rotateLocalDeviceIdentityForLoggedOut() {
+    try {
+      deviceId = generateDeviceId();
+      await chrome.storage.local.set({ toll_device_id: deviceId });
+      await chrome.storage.local.remove('toll_global_session_id');
+      loggedOutDeviceDetached = true;
+    } catch (_) {
+      // Non-fatal: logged-out entitlement UI still falls back to FREE.
+    }
+  }
+
   async function getOrCreateDeviceId() {
     const data = await chrome.storage.local.get('toll_device_id');
     let deviceId = data.toll_device_id;
@@ -740,7 +953,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   function updatePlanUi() {
     const state = (entitlement?.planState || 'unknown').toLowerCase();
     if (trialNote) {
-      trialNote.classList.toggle('hidden', state === 'trial');
+      trialNote.classList.toggle('hidden', state === 'trial' || state === 'pro');
     }
     if (billingChangeNote) {
       billingChangeNote.classList.toggle('hidden', state !== 'pro');
@@ -856,7 +1069,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   function openAppLink(deviceId) {
-    chrome.tabs.create({ url: `${SMARTPHONE_APP_URL}?device=${encodeURIComponent(deviceId)}` });
+    const lang = uiLang === 'ja' ? 'ja' : 'en';
+    chrome.tabs.create({ url: `${SMARTPHONE_APP_URL}?device=${encodeURIComponent(deviceId)}&lang=${lang}` });
   }
 
   function getPricingLink(deviceId, authToken) {
@@ -869,19 +1083,95 @@ document.addEventListener('DOMContentLoaded', async () => {
     return `${SMARTPHONE_APP_URL}pricing.html?${qs.toString()}`;
   }
 
+  async function openBillingWindow(url) {
+    const DEFAULT_WIDTH = 560;
+    const DEFAULT_HEIGHT = 920;
+    const MIN_WIDTH = 480;
+    const MIN_HEIGHT = 700;
+    const SAFE_MARGIN = 24;
+
+    const createOptions = {
+      url,
+      type: 'popup',
+      focused: true,
+    };
+
+    try {
+      const current = await chrome.windows.getCurrent();
+      const cw = Number(current?.width || 0);
+      const ch = Number(current?.height || 0);
+      const cLeft = Number(current?.left || 0);
+      const cTop = Number(current?.top || 0);
+
+      const width = Number.isFinite(cw) && cw > 0
+        ? Math.max(MIN_WIDTH, Math.min(DEFAULT_WIDTH, cw - SAFE_MARGIN * 2))
+        : DEFAULT_WIDTH;
+      const height = Number.isFinite(ch) && ch > 0
+        ? Math.max(MIN_HEIGHT, Math.min(DEFAULT_HEIGHT, ch - SAFE_MARGIN * 2))
+        : DEFAULT_HEIGHT;
+
+      // Open on the left side of the current browser window to avoid overlapping the extension popup area.
+      let left = cLeft + SAFE_MARGIN;
+      let top = cTop + 56;
+      if (Number.isFinite(cw) && cw > 0 && left + width > cLeft + cw - SAFE_MARGIN) {
+        left = cLeft + Math.max(SAFE_MARGIN, cw - width - SAFE_MARGIN);
+      }
+      if (Number.isFinite(ch) && ch > 0 && top + height > cTop + ch - SAFE_MARGIN) {
+        top = cTop + Math.max(SAFE_MARGIN, ch - height - SAFE_MARGIN);
+      }
+
+      createOptions.width = width;
+      createOptions.height = height;
+      createOptions.left = left;
+      createOptions.top = top;
+    } catch (_) {
+      // Fall back to browser default placement.
+    }
+
+    try {
+      await chrome.windows.create(createOptions);
+      return;
+    } catch (_) {
+      // Fallback for environments where popup window creation is blocked.
+    }
+    await chrome.tabs.create({ url });
+  }
+
   async function openCheckout(deviceId, authToken) {
     const url = getPricingLink(deviceId, authToken);
+    await openBillingWindow(url);
+  }
+
+  async function tryCreateCustomerPortalUrl(appReturnUrl) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 12000);
+    let res;
     try {
-      const current = await chrome.windows.getCurrent({ populate: true });
-      const activeTab = (current.tabs || []).find((tab) => tab.active);
-      if (activeTab?.id) {
-        await chrome.tabs.update(activeTab.id, { url });
-        return;
-      }
-    } catch (_) {
-      // fallback below
+      res = await fetch(`${SUPABASE_URL}/functions/v1/create-customer-portal`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        apikey: SUPABASE_ANON_KEY,
+        Authorization: `Bearer ${authAccessToken}`,
+      },
+      signal: controller.signal,
+      body: JSON.stringify({ return_url: appReturnUrl }),
+    });
+    } finally {
+      clearTimeout(timeoutId);
     }
-    chrome.tabs.create({ url });
+    const payload = await res.json().catch(() => ({}));
+    return { res, payload };
+  }
+
+  async function refreshAuthSessionTokenIfPossible() {
+    if (!supabase) return false;
+    const { data } = await supabase.auth.getSession();
+    const session = data?.session || null;
+    if (!session?.access_token) return false;
+    authAccessToken = session.access_token;
+    authUserEmail = session.user?.email || authUserEmail;
+    return true;
   }
 
   async function openCustomerPortal() {
@@ -900,40 +1190,30 @@ document.addEventListener('DOMContentLoaded', async () => {
       });
       if (deviceId) returnQs.set('device', deviceId);
       const appReturnUrl = `${SMARTPHONE_APP_URL}pricing.html?${returnQs.toString()}`;
-      const res = await fetch(`${SUPABASE_URL}/functions/v1/create-customer-portal`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          apikey: SUPABASE_ANON_KEY,
-          Authorization: `Bearer ${authAccessToken}`,
-        },
-        body: JSON.stringify({ return_url: appReturnUrl }),
-      });
+      let { res, payload } = await tryCreateCustomerPortalUrl(appReturnUrl);
+      if ((!res.ok || !payload?.url) && (res.status === 401 || res.status === 403)) {
+        const refreshed = await refreshAuthSessionTokenIfPossible();
+        if (refreshed) {
+          ({ res, payload } = await tryCreateCustomerPortalUrl(appReturnUrl));
+        }
+      }
 
-      const payload = await res.json().catch(() => ({}));
       if (!res.ok || !payload?.url) {
         const detail = payload?.error || `HTTP ${res.status}`;
         statusMsg.textContent = t('portalError', { detail });
         showSavedStatus();
+        showToast(statusMsg.textContent, 4200, 'error');
         return;
       }
 
-      try {
-        const current = await chrome.windows.getCurrent({ populate: true });
-        const activeTab = (current.tabs || []).find((tab) => tab.active);
-        if (activeTab?.id) {
-          await chrome.tabs.update(activeTab.id, { url: payload.url });
-        } else {
-          chrome.tabs.create({ url: payload.url });
-        }
-      } catch (_) {
-        chrome.tabs.create({ url: payload.url });
-      }
+      await openBillingWindow(payload.url);
       statusMsg.textContent = t('portalOpened');
       showSavedStatus();
+      showToast(statusMsg.textContent, 2200, 'info');
     } catch (e) {
       statusMsg.textContent = t('portalFailed');
       showSavedStatus();
+      showToast(statusMsg.textContent, 4200, 'error');
     }
   }
 
@@ -954,7 +1234,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       const state = String(entitlement?.planState || '').toLowerCase();
       if (entitlement?.trialJustStarted) {
         statusMsg.textContent = t('trialStartedNoCard');
-        showToast(t('trialStartedNoCard'));
+        showToast(t('trialStartedNoCard'), 2600, 'success');
       } else if (state === 'trial') {
         statusMsg.textContent = t('trialActiveNoCard');
       } else {
@@ -1027,21 +1307,77 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   async function triggerManageSubscription() {
-    if (manageInFlight) return;
+    if (manageInFlight) {
+      statusMsg.textContent = t('portalBusy');
+      showSavedStatus(2200);
+      return;
+    }
     manageInFlight = true;
     try {
+      statusMsg.textContent = t('portalOpening');
+      showSavedStatus(2400);
       await openCustomerPortal();
       await refreshEntitlementUi();
+    } catch (e) {
+      const aborted = e?.name === 'AbortError' || String(e?.message || '').toLowerCase().includes('aborted');
+      statusMsg.textContent = aborted ? t('portalTimeout') : t('portalFailed');
+      showSavedStatus(4200);
+      showToast(statusMsg.textContent, 4200, 'error');
     } finally {
       manageInFlight = false;
     }
   }
 
+  function handleManageSubscriptionAction(e) {
+    if (e) {
+      e.preventDefault?.();
+      e.stopPropagation?.();
+    }
+    triggerManageSubscription();
+  }
+
   async function applySettingsToCurrentLock() {
     try {
       const dayChecks = Array.from(document.querySelectorAll('.day-check input'));
-      const startTimeInput = document.getElementById('start-time');
-      const endTimeInput = document.getElementById('end-time');
+      const startHourSelect = document.getElementById('start-hour');
+      const startMinuteSelect = document.getElementById('start-minute');
+      const endHourSelect = document.getElementById('end-hour');
+      const endMinuteSelect = document.getElementById('end-minute');
+      const startTimeValue = (startHourSelect && startMinuteSelect)
+        ? `${startHourSelect.value}:${startMinuteSelect.value}`
+        : '';
+      const endTimeValue = (endHourSelect && endMinuteSelect)
+        ? `${endHourSelect.value}:${endMinuteSelect.value}`
+        : '';
+      const breakStartValue = (breakStartHourSelect && breakStartMinuteSelect)
+        ? `${breakStartHourSelect.value}:${breakStartMinuteSelect.value}`
+        : '';
+      const breakEndValue = (breakEndHourSelect && breakEndMinuteSelect)
+        ? `${breakEndHourSelect.value}:${breakEndMinuteSelect.value}`
+        : '';
+      const validation = validateScheduleWindows(
+        startTimeValue,
+        endTimeValue,
+        breakStartValue,
+        breakEndValue,
+        { breakEnabled: !!(isProUser && breakEnabledToggle?.checked) }
+      );
+      if (!validation.ok) {
+        const reasonMap = {
+          lock_order: 'lockTimeOrderInvalid',
+          lock_span: 'lockTimeMinSpanInvalid',
+          break_required: 'breakTimeRequiredInvalid',
+          break_order: 'breakTimeOrderInvalid',
+          break_span: 'breakTimeMinSpanInvalid',
+          break_outside: 'breakTimeOutsideLockInvalid',
+        };
+        if (validation.reason === 'lock_order') setTimeToSelects('end', startTimeValue);
+        if (validation.reason === 'break_order') setTimeToSelects('breakEnd', breakStartValue);
+        statusMsg.textContent = t(reasonMap[validation.reason] || 'applyFailed');
+        showSavedStatus(3000);
+        showToast(statusMsg.textContent, 3000, 'error');
+        return;
+      }
       await syncUnlockPresetState();
       const activePreset = getPresetById(activeUnlockPresetId);
       const targetCount = activePreset.reps;
@@ -1051,12 +1387,15 @@ document.addEventListener('DOMContentLoaded', async () => {
         lock_duration_min: graceMin,
       });
       const activeDays = dayChecks.filter(c => c.checked).map(c => parseInt(c.dataset.day, 10));
-      if (isProUser && activeDays.length > 0 && startTimeInput?.value && endTimeInput?.value) {
+      if (isProUser && activeDays.length > 0 && startTimeValue && endTimeValue) {
         await chrome.storage.local.set({
           lock_schedule: {
             days: activeDays,
-            start: startTimeInput.value,
-            end: endTimeInput.value,
+            start: startTimeValue,
+            end: endTimeValue,
+            breakEnabled: !!breakEnabledToggle?.checked,
+            breakStart: breakStartValue,
+            breakEnd: breakEndValue,
           },
         });
       }
@@ -1068,7 +1407,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (!lockTabIds || lockTabIds.length === 0) {
         statusMsg.textContent = t('noActiveTab');
         showSavedStatus();
-        showToast(t('noActiveTab'));
+        showToast(t('noActiveTab'), 2600, 'error');
         return;
       }
 
@@ -1131,11 +1470,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     };
   }
   if (manageSubscriptionBtn) {
-    manageSubscriptionBtn.onclick = (e) => {
-      e.preventDefault();
-      triggerManageSubscription();
-    };
+    manageSubscriptionBtn.onclick = handleManageSubscriptionAction;
+    manageSubscriptionBtn.addEventListener('pointerup', handleManageSubscriptionAction);
+    manageSubscriptionBtn.addEventListener('touchend', handleManageSubscriptionAction, { passive: false });
   }
+  document.addEventListener('click', (e) => {
+    const target = e.target;
+    if (!(target instanceof Element)) return;
+    if (!target.closest('#manage-subscription-btn')) return;
+    handleManageSubscriptionAction(e);
+  }, true);
   if (applyCurrentLockBtn) {
     applyCurrentLockBtn.onclick = (e) => {
       e.preventDefault();
@@ -1190,6 +1534,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (supabase) {
         await supabase.auth.signOut();
       }
+      // PC logout should also detach future QRs from the previously linked device context.
+      await rotateLocalDeviceIdentityForLoggedOut();
       await refreshEntitlementUi();
       statusMsg.textContent = t('loggedOut');
       showSavedStatus();
@@ -1204,6 +1550,19 @@ document.addEventListener('DOMContentLoaded', async () => {
   setApplyCurrentLockEnabled(false);
   refreshApplyCurrentLockState();
   consumeBillingFeedback();
+  chrome.storage.onChanged.addListener((changes, areaName) => {
+    if (areaName !== 'local') return;
+    const next = changes?.toll_billing_feedback?.newValue;
+    if (!next?.message) return;
+    showBillingFeedback(next);
+  });
+  chrome.runtime.onMessage.addListener((msg) => {
+    if (!msg || msg.type !== 'TOLL_BILLING_FEEDBACK' || !msg.feedback) return;
+    showBillingFeedback(msg.feedback);
+  });
+  setInterval(() => {
+    consumeBillingFeedback();
+  }, 2000);
 
   // Keep popup state fresh after checkout/webhook without manual reload.
   setInterval(() => {
@@ -1306,11 +1665,6 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (!deviceId) deviceId = await getOrCreateDeviceId();
       const linkPayload = {
         user_id: session.user.id,
-        subscription_status: sub === 'active' ? 'active' : 'inactive',
-        plan_tier: sub === 'active' ? 'pro' : 'free',
-        trial_ends_at: profile.trial_ends_at || null,
-        cancel_at_period_end: !!profile.cancel_at_period_end,
-        current_period_end: profile.current_period_end || null,
         updated_at: new Date().toISOString(),
         last_seen_at: new Date().toISOString(),
       };
@@ -1430,6 +1784,25 @@ document.addEventListener('DOMContentLoaded', async () => {
       });
     });
   }
+  if (unlockCustomDurationInput) {
+    unlockCustomDurationInput.min = String(PRO_CUSTOM_DURATION_MIN);
+    unlockCustomDurationInput.max = String(PRO_CUSTOM_DURATION_MAX);
+    unlockCustomDurationInput.step = '1';
+    unlockCustomDurationInput.addEventListener('input', () => {
+      setActiveCustomDuration(unlockCustomDurationInput.value);
+      renderUnlockPresetStateUi();
+    });
+    unlockCustomDurationInput.addEventListener('change', async () => {
+      setActiveCustomDuration(unlockCustomDurationInput.value);
+      if (String(activeUnlockPresetId).startsWith('custom_')) {
+        await persistUnlockPresetState();
+        renderUnlockPresetStateUi();
+        const p = getPresetById(activeUnlockPresetId);
+        statusMsg.textContent = t('presetAppliedNow', { name: p.label, reps: p.reps, minutes: p.graceMin });
+        showSavedStatus(2600);
+      }
+    });
+  }
   await syncUnlockPresetState();
 
   // 2. Schedule
@@ -1437,11 +1810,149 @@ document.addEventListener('DOMContentLoaded', async () => {
   const dayCheckLabels = document.querySelectorAll('.day-check');
   const scheduleDaysContainer = document.querySelector('.schedule-days');
   const scheduleTimeContainer = document.querySelector('.schedule-time');
+  const proBreakToggleRow = document.getElementById('pro-break-toggle-row');
+  const breakEnabledToggle = document.getElementById('break-enabled-toggle');
+  const proBreakTimeRow = document.getElementById('pro-break-time-row');
   const scheduleLockNote = document.getElementById('schedule-lock-note');
-  const startTimeInput = document.getElementById('start-time');
-  const endTimeInput = document.getElementById('end-time');
+  const startHourSelect = document.getElementById('start-hour');
+  const startMinuteSelect = document.getElementById('start-minute');
+  const endHourSelect = document.getElementById('end-hour');
+  const endMinuteSelect = document.getElementById('end-minute');
+  const breakStartHourSelect = document.getElementById('break-start-hour');
+  const breakStartMinuteSelect = document.getElementById('break-start-minute');
+  const breakEndHourSelect = document.getElementById('break-end-hour');
+  const breakEndMinuteSelect = document.getElementById('break-end-minute');
   const freeScheduleMode = document.getElementById('free-schedule-mode');
   const proScheduleMode = document.getElementById('pro-schedule-mode');
+  let timeWheelGuardInstalled = false;
+
+  function parseTimeParts(value) {
+    const m = /^(\d{2}):(\d{2})$/.exec(String(value || ''));
+    if (!m) return null;
+    const hh = Math.max(0, Math.min(23, Number(m[1])));
+    const mm = Math.max(0, Math.min(59, Number(m[2])));
+    if (!Number.isFinite(hh) || !Number.isFinite(mm)) return null;
+    return { hh, mm };
+  }
+
+  function formatHhMm(hh, mm) {
+    return `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}`;
+  }
+
+  function toTotalMinutes(timeValue) {
+    const parts = parseTimeParts(timeValue);
+    if (!parts) return null;
+    return (parts.hh * 60) + parts.mm;
+  }
+
+  function isTimeRangeAscending(startValue, endValue) {
+    const startMin = toTotalMinutes(startValue);
+    const endMin = toTotalMinutes(endValue);
+    if (startMin === null || endMin === null) return false;
+    return endMin >= startMin;
+  }
+
+  function getTimeSpanMinutes(startValue, endValue) {
+    const startMin = toTotalMinutes(startValue);
+    const endMin = toTotalMinutes(endValue);
+    if (startMin === null || endMin === null) return null;
+    return endMin - startMin;
+  }
+
+  function isBreakInsideLock(lockStart, lockEnd, breakStart, breakEnd) {
+    const ls = toTotalMinutes(lockStart);
+    const le = toTotalMinutes(lockEnd);
+    const bs = toTotalMinutes(breakStart);
+    const be = toTotalMinutes(breakEnd);
+    if ([ls, le, bs, be].some((v) => v === null)) return false;
+    return bs >= ls && be <= le;
+  }
+
+  function getTimeFromSelects(prefix) {
+    let hourEl = null;
+    let minEl = null;
+    if (prefix === 'start') {
+      hourEl = startHourSelect;
+      minEl = startMinuteSelect;
+    } else if (prefix === 'end') {
+      hourEl = endHourSelect;
+      minEl = endMinuteSelect;
+    } else if (prefix === 'breakStart') {
+      hourEl = breakStartHourSelect;
+      minEl = breakStartMinuteSelect;
+    } else if (prefix === 'breakEnd') {
+      hourEl = breakEndHourSelect;
+      minEl = breakEndMinuteSelect;
+    }
+    if (!hourEl || !minEl) return '';
+    return `${hourEl.value}:${minEl.value}`;
+  }
+
+  function setTimeToSelects(prefix, timeValue) {
+    let hourEl = null;
+    let minEl = null;
+    if (prefix === 'start') {
+      hourEl = startHourSelect;
+      minEl = startMinuteSelect;
+    } else if (prefix === 'end') {
+      hourEl = endHourSelect;
+      minEl = endMinuteSelect;
+    } else if (prefix === 'breakStart') {
+      hourEl = breakStartHourSelect;
+      minEl = breakStartMinuteSelect;
+    } else if (prefix === 'breakEnd') {
+      hourEl = breakEndHourSelect;
+      minEl = breakEndMinuteSelect;
+    }
+    if (!hourEl || !minEl) return;
+    const parts = parseTimeParts(timeValue) || { hh: 0, mm: 0 };
+    hourEl.value = String(parts.hh).padStart(2, '0');
+    minEl.value = String(parts.mm).padStart(2, '0');
+  }
+
+  function fillTimeSelectOptions() {
+    const hourOptions = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0'));
+    const minuteOptions = Array.from({ length: 60 }, (_, i) => String(i).padStart(2, '0'));
+    [startHourSelect, endHourSelect, breakStartHourSelect, breakEndHourSelect].forEach((el) => {
+      if (!el || el.options.length > 0) return;
+      hourOptions.forEach((h) => {
+        const opt = document.createElement('option');
+        opt.value = h;
+        opt.textContent = h;
+        el.appendChild(opt);
+      });
+    });
+    [startMinuteSelect, endMinuteSelect, breakStartMinuteSelect, breakEndMinuteSelect].forEach((el) => {
+      if (!el || el.options.length > 0) return;
+      minuteOptions.forEach((m) => {
+        const opt = document.createElement('option');
+        opt.value = m;
+        opt.textContent = m;
+        el.appendChild(opt);
+      });
+    });
+  }
+
+  function installTimeWheelGuard() {
+    if (timeWheelGuardInstalled) return;
+    document.addEventListener('wheel', (e) => {
+      const target = e.target;
+      if (!(target instanceof Element)) return;
+      const timeSelect = target.closest('.time-picker select');
+      if (!timeSelect || timeSelect.disabled) return;
+      e.preventDefault();
+      e.stopPropagation();
+      const maxIndex = timeSelect.options.length - 1;
+      if (maxIndex < 0) return;
+      const step = e.deltaY < 0 ? -1 : 1;
+      const nextIndex = Math.max(0, Math.min(maxIndex, timeSelect.selectedIndex + step));
+      if (nextIndex !== timeSelect.selectedIndex) {
+        timeSelect.selectedIndex = nextIndex;
+        timeSelect.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+    }, { passive: false, capture: true });
+    timeWheelGuardInstalled = true;
+  }
 
   const scheduleData = await chrome.storage.local.get([
     'lock_schedule',
@@ -1453,6 +1964,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     days: [1, 2, 3, 4, 5],
     start: '09:00',
     end: '18:00',
+    breakEnabled: false,
+    breakStart: '12:00',
+    breakEnd: '13:00',
   };
 
   function normalizeSchedule(raw) {
@@ -1460,19 +1974,57 @@ document.addEventListener('DOMContentLoaded', async () => {
     const days = raw.days
       .map((d) => parseInt(d, 10))
       .filter((d) => !Number.isNaN(d) && d >= 0 && d <= 6);
+    const start = raw.start || defaultSchedule.start;
+    let end = raw.end || defaultSchedule.end;
+    if (!isTimeRangeAscending(start, end)) end = start;
+    const breakStart = typeof raw.breakStart === 'string' ? raw.breakStart : defaultSchedule.breakStart;
+    let breakEnd = typeof raw.breakEnd === 'string' ? raw.breakEnd : defaultSchedule.breakEnd;
+    if (breakStart && breakEnd && !isTimeRangeAscending(breakStart, breakEnd)) breakEnd = breakStart;
+    const breakEnabled = raw.breakEnabled === true;
     return {
       days: days.length ? days : [...defaultSchedule.days],
-      start: raw.start || defaultSchedule.start,
-      end: raw.end || defaultSchedule.end,
+      start,
+      end,
+      breakEnabled,
+      breakStart,
+      breakEnd,
     };
+  }
+
+  function validateScheduleWindows(start, end, breakStart, breakEnd, { breakEnabled = false } = {}) {
+    if (!isTimeRangeAscending(start, end)) return { ok: false, reason: 'lock_order' };
+    const lockSpan = getTimeSpanMinutes(start, end);
+    if (!Number.isFinite(lockSpan) || lockSpan < MIN_SCHEDULE_SPAN_MIN) return { ok: false, reason: 'lock_span' };
+
+    if (!breakEnabled) return { ok: true };
+
+    const hasBreak = !!breakStart && !!breakEnd;
+    if (!hasBreak) return { ok: false, reason: 'break_required' };
+    if (!isTimeRangeAscending(breakStart, breakEnd)) return { ok: false, reason: 'break_order' };
+    const breakSpan = getTimeSpanMinutes(breakStart, breakEnd);
+    if (!Number.isFinite(breakSpan) || breakSpan < MIN_SCHEDULE_SPAN_MIN) return { ok: false, reason: 'break_span' };
+    if (!isBreakInsideLock(start, end, breakStart, breakEnd)) return { ok: false, reason: 'break_outside' };
+    return { ok: true };
   }
 
   function buildScheduleFromInputs() {
     return {
       days: Array.from(dayChecks).filter((c) => c.checked).map((c) => parseInt(c.dataset.day, 10)),
-      start: startTimeInput.value,
-      end: endTimeInput.value,
+      start: getTimeFromSelects('start'),
+      end: getTimeFromSelects('end'),
+      breakEnabled: !!breakEnabledToggle?.checked,
+      breakStart: getTimeFromSelects('breakStart'),
+      breakEnd: getTimeFromSelects('breakEnd'),
     };
+  }
+
+  function refreshBreakUiState() {
+    const enabled = !!breakEnabledToggle?.checked;
+    if (proBreakTimeRow) proBreakTimeRow.classList.toggle('hidden', !enabled || !isProUser);
+    [breakStartHourSelect, breakStartMinuteSelect, breakEndHourSelect, breakEndMinuteSelect].forEach((el) => {
+      if (!el) return;
+      el.disabled = !isProUser || !enabled;
+    });
   }
 
   function applyScheduleToInputs(values) {
@@ -1480,8 +2032,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     dayChecks.forEach((check) => {
       check.checked = normalized.days.includes(parseInt(check.dataset.day, 10));
     });
-    startTimeInput.value = normalized.start;
-    endTimeInput.value = normalized.end;
+    setTimeToSelects('start', normalized.start);
+    setTimeToSelects('end', normalized.end);
+    if (breakEnabledToggle) breakEnabledToggle.checked = !!normalized.breakEnabled;
+    setTimeToSelects('breakStart', normalized.breakStart);
+    setTimeToSelects('breakEnd', normalized.breakEnd);
+    refreshBreakUiState();
   }
 
   const schedule = normalizeSchedule(scheduleData.lock_schedule);
@@ -1499,6 +2055,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     schedule.days = days;
     schedule.start = '00:00';
     schedule.end = '23:59';
+    schedule.breakEnabled = false;
+    schedule.breakStart = '';
+    schedule.breakEnd = '';
     return days;
   }
 
@@ -1512,8 +2071,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     dayChecks.forEach(check => {
       check.checked = days.includes(parseInt(check.dataset.day));
     });
-    startTimeInput.value = schedule.start;
-    endTimeInput.value = schedule.end;
+    setTimeToSelects('start', schedule.start);
+    setTimeToSelects('end', schedule.end);
+    setTimeToSelects('breakStart', schedule.breakStart);
+    setTimeToSelects('breakEnd', schedule.breakEnd);
     if (freeScheduleMode) {
       freeScheduleMode.querySelectorAll('.mode-btn').forEach((btn) => {
         btn.classList.toggle('active', btn.dataset.freeSchedule === freeScheduleModeValue);
@@ -1542,7 +2103,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     showSavedStatus();
   }
 
+  fillTimeSelectOptions();
   applyScheduleToInputs(schedule);
+  installTimeWheelGuard();
   const blockFreeScheduleInteraction = (e) => {
     if (isProUser) return;
     e.preventDefault();
@@ -1554,14 +2117,29 @@ document.addEventListener('DOMContentLoaded', async () => {
   dayCheckLabels.forEach((label) => {
     label.addEventListener('click', blockFreeScheduleInteraction, true);
   });
-  startTimeInput.addEventListener('change', saveSchedule);
-  endTimeInput.addEventListener('change', saveSchedule);
+  [startHourSelect, startMinuteSelect, endHourSelect, endMinuteSelect, breakStartHourSelect, breakStartMinuteSelect, breakEndHourSelect, breakEndMinuteSelect].forEach((el) => {
+    if (el) el.addEventListener('change', saveSchedule);
+  });
+  if (breakEnabledToggle) {
+    breakEnabledToggle.addEventListener('change', async () => {
+      refreshBreakUiState();
+      await saveSchedule();
+    });
+  }
   if (!isProUser) {
     dayChecks.forEach(c => c.disabled = true);
-    startTimeInput.disabled = true;
-    endTimeInput.disabled = true;
+    if (startHourSelect) startHourSelect.disabled = true;
+    if (startMinuteSelect) startMinuteSelect.disabled = true;
+    if (endHourSelect) endHourSelect.disabled = true;
+    if (endMinuteSelect) endMinuteSelect.disabled = true;
+    if (breakStartHourSelect) breakStartHourSelect.disabled = true;
+    if (breakStartMinuteSelect) breakStartMinuteSelect.disabled = true;
+    if (breakEndHourSelect) breakEndHourSelect.disabled = true;
+    if (breakEndMinuteSelect) breakEndMinuteSelect.disabled = true;
     if (scheduleDaysContainer) scheduleDaysContainer.classList.add('locked-ui');
     if (scheduleTimeContainer) scheduleTimeContainer.classList.add('locked-ui');
+    if (proBreakToggleRow) proBreakToggleRow.classList.add('hidden');
+    if (proBreakTimeRow) proBreakTimeRow.classList.add('hidden');
     if (scheduleLockNote) scheduleLockNote.classList.remove('hidden');
     if (freeScheduleMode) {
       freeScheduleMode.classList.remove('hidden');
@@ -1577,10 +2155,18 @@ document.addEventListener('DOMContentLoaded', async () => {
     await persistFreeScheduleMode(freeScheduleModeValue);
   } else {
     dayChecks.forEach((c) => { c.disabled = false; });
-    startTimeInput.disabled = false;
-    endTimeInput.disabled = false;
+    if (startHourSelect) startHourSelect.disabled = false;
+    if (startMinuteSelect) startMinuteSelect.disabled = false;
+    if (endHourSelect) endHourSelect.disabled = false;
+    if (endMinuteSelect) endMinuteSelect.disabled = false;
+    if (breakStartHourSelect) breakStartHourSelect.disabled = false;
+    if (breakStartMinuteSelect) breakStartMinuteSelect.disabled = false;
+    if (breakEndHourSelect) breakEndHourSelect.disabled = false;
+    if (breakEndMinuteSelect) breakEndMinuteSelect.disabled = false;
     if (scheduleDaysContainer) scheduleDaysContainer.classList.remove('locked-ui');
     if (scheduleTimeContainer) scheduleTimeContainer.classList.remove('locked-ui');
+    if (proBreakToggleRow) proBreakToggleRow.classList.remove('hidden');
+    if (proBreakTimeRow) proBreakTimeRow.classList.remove('hidden');
     if (scheduleLockNote) scheduleLockNote.classList.add('hidden');
     if (freeScheduleMode) {
       freeScheduleMode.classList.add('hidden');
@@ -1603,11 +2189,30 @@ document.addEventListener('DOMContentLoaded', async () => {
       await chrome.storage.local.set({ pro_schedule_presets: proSchedulePresets });
     }
     await switchProPreset(activeProPresetKey);
+    refreshBreakUiState();
   }
 
   async function saveSchedule() {
     if (!isProUser) return;
-    const current = normalizeSchedule(buildScheduleFromInputs());
+    const raw = buildScheduleFromInputs();
+    const validation = validateScheduleWindows(raw.start, raw.end, raw.breakStart, raw.breakEnd, { breakEnabled: !!raw.breakEnabled });
+    if (!validation.ok) {
+      const reasonMap = {
+        lock_order: 'lockTimeOrderInvalid',
+        lock_span: 'lockTimeMinSpanInvalid',
+        break_required: 'breakTimeRequiredInvalid',
+        break_order: 'breakTimeOrderInvalid',
+        break_span: 'breakTimeMinSpanInvalid',
+        break_outside: 'breakTimeOutsideLockInvalid',
+      };
+      if (validation.reason === 'lock_order') setTimeToSelects('end', raw.start);
+      if (validation.reason === 'break_order') setTimeToSelects('breakEnd', raw.breakStart);
+      statusMsg.textContent = t(reasonMap[validation.reason] || 'settingsSaved');
+      showSavedStatus(2600);
+      showToast(statusMsg.textContent, 2600, 'error');
+      return;
+    }
+    const current = normalizeSchedule(raw);
     proSchedulePresets[activeProPresetKey] = current;
     await chrome.storage.local.set({
       active_pro_schedule_preset: activeProPresetKey,
@@ -1634,9 +2239,23 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   const sitesData = await chrome.storage.local.get(['blocked_sites', 'custom_blocked_sites']);
-  let savedSites = Array.isArray(sitesData.blocked_sites)
-    ? [...sitesData.blocked_sites]
-    : getDefaultBlockedSitesForLang(uiLang);
+  function migrateLegacyPresetSites(rawSites) {
+    if (!Array.isArray(rawSites)) return getDefaultBlockedSitesForLang(uiLang);
+    const allowed = new Set(Array.from(siteChecks).map((c) => c.value));
+    const migrated = [];
+    for (const site of rawSites) {
+      if (site === 'facebook.com') {
+        if (allowed.has('twitch.tv') && !migrated.includes('twitch.tv')) migrated.push('twitch.tv');
+        continue;
+      }
+      if (allowed.has(site) && !migrated.includes(site)) {
+        migrated.push(site);
+      }
+    }
+    return migrated.length ? migrated : getDefaultBlockedSitesForLang(uiLang);
+  }
+
+  let savedSites = migrateLegacyPresetSites(sitesData.blocked_sites);
   let customSites = sitesData.custom_blocked_sites || [];
 
   function normalizeDomain(input) {
@@ -1651,6 +2270,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     return presetSites.length + custom.length;
   }
 
+  function getPlanSiteLimit() {
+    return isProUser ? PRO_MAX_SITES : FREE_MAX_SITES;
+  }
+
   function trimForFreeLimit() {
     if (isProUser) return;
     // Free plan: custom domains are Pro-only.
@@ -1658,6 +2281,23 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (savedSites.length > FREE_MAX_SITES) {
       savedSites = savedSites.slice(0, FREE_MAX_SITES);
     }
+  }
+
+  function trimForPlanSiteLimit() {
+    const limit = getPlanSiteLimit();
+    let presetSites = getCheckedPresetSites();
+    if (presetSites.length > limit) {
+      const keepPreset = new Set(presetSites.slice(0, limit));
+      siteChecks.forEach((check) => {
+        check.checked = keepPreset.has(check.value);
+      });
+      presetSites = getCheckedPresetSites();
+    }
+    const room = Math.max(0, limit - presetSites.length);
+    if (customSites.length > room) {
+      customSites = customSites.slice(0, room);
+    }
+    savedSites = presetSites;
   }
 
   trimForFreeLimit();
@@ -1670,6 +2310,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   siteChecks.forEach(check => {
     check.checked = savedSites.includes(check.value);
     check.addEventListener('change', saveBlockedSites);
+  });
+  trimForPlanSiteLimit();
+  await chrome.storage.local.set({
+    blocked_sites: savedSites,
+    custom_blocked_sites: customSites,
   });
 
   // カスタムドメインの初期化
@@ -1706,6 +2351,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     const domain = normalizeDomain(customInput.value);
     if (!domain || customSites.includes(domain)) return;
+    const limit = getPlanSiteLimit();
+    const currentTotal = totalSiteCount(getCheckedPresetSites(), customSites);
+    if (currentTotal + 1 > limit) {
+      showBlockedSitesToast(
+        t(isProUser ? 'proLimitUpToSites' : 'freeLimitUpToSites', { count: limit })
+      );
+      return;
+    }
     if (domain) {
       customSites.push(domain);
       await chrome.storage.local.set({ custom_blocked_sites: customSites });
@@ -1723,11 +2376,12 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   async function saveBlockedSites(e) {
     const activeSites = Array.from(siteChecks).filter(c => c.checked).map(c => c.value);
-    if (!isProUser && totalSiteCount(activeSites, customSites) > FREE_MAX_SITES) {
+    const limit = getPlanSiteLimit();
+    if (totalSiteCount(activeSites, customSites) > limit) {
       if (e?.target) e.target.checked = false;
-      statusMsg.textContent = t('freeLimitUpToSites', { count: FREE_MAX_SITES });
-      showSavedStatus();
-      showToast(statusMsg.textContent);
+      showBlockedSitesToast(
+        t(isProUser ? 'proLimitUpToSites' : 'freeLimitUpToSites', { count: limit })
+      );
       return;
     }
     await chrome.storage.local.set({ blocked_sites: activeSites });
@@ -1751,10 +2405,18 @@ document.addEventListener('DOMContentLoaded', async () => {
     // 2) Schedule UI + value
     if (!isProUser) {
       dayChecks.forEach((c) => { c.disabled = true; });
-      startTimeInput.disabled = true;
-      endTimeInput.disabled = true;
+      if (startHourSelect) startHourSelect.disabled = true;
+      if (startMinuteSelect) startMinuteSelect.disabled = true;
+    if (endHourSelect) endHourSelect.disabled = true;
+    if (endMinuteSelect) endMinuteSelect.disabled = true;
+    if (breakStartHourSelect) breakStartHourSelect.disabled = true;
+    if (breakStartMinuteSelect) breakStartMinuteSelect.disabled = true;
+    if (breakEndHourSelect) breakEndHourSelect.disabled = true;
+    if (breakEndMinuteSelect) breakEndMinuteSelect.disabled = true;
       if (scheduleDaysContainer) scheduleDaysContainer.classList.add('locked-ui');
       if (scheduleTimeContainer) scheduleTimeContainer.classList.add('locked-ui');
+      if (proBreakToggleRow) proBreakToggleRow.classList.add('hidden');
+      if (proBreakTimeRow) proBreakTimeRow.classList.add('hidden');
       if (scheduleLockNote) scheduleLockNote.classList.remove('hidden');
       if (freeScheduleMode) {
         freeScheduleMode.classList.remove('hidden');
@@ -1772,10 +2434,18 @@ document.addEventListener('DOMContentLoaded', async () => {
       await persistFreeScheduleMode(freeScheduleModeValue);
     } else {
       dayChecks.forEach((c) => { c.disabled = false; });
-      startTimeInput.disabled = false;
-      endTimeInput.disabled = false;
+      if (startHourSelect) startHourSelect.disabled = false;
+      if (startMinuteSelect) startMinuteSelect.disabled = false;
+    if (endHourSelect) endHourSelect.disabled = false;
+    if (endMinuteSelect) endMinuteSelect.disabled = false;
+    if (breakStartHourSelect) breakStartHourSelect.disabled = false;
+    if (breakStartMinuteSelect) breakStartMinuteSelect.disabled = false;
+    if (breakEndHourSelect) breakEndHourSelect.disabled = false;
+    if (breakEndMinuteSelect) breakEndMinuteSelect.disabled = false;
       if (scheduleDaysContainer) scheduleDaysContainer.classList.remove('locked-ui');
       if (scheduleTimeContainer) scheduleTimeContainer.classList.remove('locked-ui');
+      if (proBreakToggleRow) proBreakToggleRow.classList.remove('hidden');
+      if (proBreakTimeRow) proBreakTimeRow.classList.remove('hidden');
       if (scheduleLockNote) scheduleLockNote.classList.add('hidden');
       if (freeScheduleMode) {
         freeScheduleMode.classList.add('hidden');
@@ -1795,6 +2465,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         renderProPresetTabs();
       }
       await switchProPreset(activeProPresetKey);
+      refreshBreakUiState();
     }
 
     // 3) Site limits / custom domains
@@ -1817,8 +2488,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     } else {
       customInput.disabled = false;
       addCustomBtn.disabled = false;
-      savedSites = getCheckedPresetSites();
-      await chrome.storage.local.set({ blocked_sites: savedSites });
+      trimForPlanSiteLimit();
+      await chrome.storage.local.set({
+        blocked_sites: savedSites,
+        custom_blocked_sites: customSites,
+      });
     }
     renderCustomSites();
   }
@@ -1916,8 +2590,9 @@ document.addEventListener('DOMContentLoaded', async () => {
       const qrEl = document.getElementById('settings-qrcode');
       qrEl.innerHTML = '';
       if (typeof QRCode !== 'undefined') {
+        const lang = uiLang === 'ja' ? 'ja' : 'en';
         new QRCode(qrEl, {
-          text: `${SMARTPHONE_APP_URL}?session=${sessionId}&target=${SETTINGS_UNLOCK_REPS}&device=${encodeURIComponent(deviceId)}`,
+          text: `${SMARTPHONE_APP_URL}?session=${sessionId}&target=${SETTINGS_UNLOCK_REPS}&device=${encodeURIComponent(deviceId)}&lang=${lang}`,
           width: 120,
           height: 120,
           colorDark: '#000000',

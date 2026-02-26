@@ -295,6 +295,7 @@
   font-family: var(--font-display);
   z-index: 2147483646;
   transform: rotate(3deg);
+  user-select: none;
 }
 
 .toll-countdown-hud .hud-label {
@@ -308,10 +309,96 @@
   display: inline-block;
 }
 
+.toll-countdown-hud .hud-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.toll-countdown-hud .hud-controls {
+  display: flex;
+  gap: 6px;
+}
+
+.toll-countdown-hud .hud-control-btn {
+  width: 28px;
+  height: 24px;
+  border: 2px solid var(--pop-black);
+  background: var(--pop-white);
+  color: var(--pop-black);
+  font-family: var(--font-display);
+  font-weight: 900;
+  font-size: 0.8rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.toll-countdown-hud .hud-control-btn:hover {
+  background: var(--pop-yellow);
+}
+
 .toll-countdown-hud .hud-timer {
   font-size: 3rem;
   font-weight: 900;
   line-height: 1;
+}
+
+.toll-countdown-hud.mini {
+  padding: 10px 12px;
+  top: 22px;
+  right: 22px;
+  transform: none;
+  box-shadow: 6px 6px 0px var(--pop-black);
+}
+
+.toll-countdown-hud.user-positioned {
+  transform: none;
+}
+
+.toll-countdown-hud.dragging {
+  opacity: 0.95;
+}
+
+.toll-countdown-hud.mini .hud-label {
+  font-size: 0.58rem;
+  padding: 2px 6px;
+  margin-bottom: 4px;
+}
+
+.toll-countdown-hud.mini .hud-control-btn {
+  width: 22px;
+  height: 18px;
+  font-size: 0.66rem;
+}
+
+.toll-countdown-hud.mini .hud-timer {
+  font-size: 1.35rem;
+}
+
+.toll-countdown-hud.hidden-user {
+  display: none;
+}
+
+.toll-countdown-restore {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 2147483646;
+  border: 4px solid var(--pop-black);
+  background: var(--pop-white);
+  color: var(--pop-black);
+  padding: 7px 10px;
+  font-family: var(--font-display);
+  font-size: 0.74rem;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  box-shadow: 6px 6px 0px var(--pop-black);
+}
+
+.toll-countdown-restore:hover {
+  background: var(--pop-yellow);
 }
 
 .toll-countdown-hud.warning {
@@ -384,4 +471,3 @@
     height: 150px !important;
   }
 }
-

@@ -258,7 +258,6 @@
     recalibrateBtn: document.getElementById('recalibrate-btn'),
     hint: document.getElementById('squat-hint'),
     overlayUi: document.querySelector('.overlay-ui'),
-    fullscreenBtn: document.getElementById('fullscreen-btn'),
     globalLangSwitch: document.querySelector('.global-lang-switch')
   };
 
@@ -468,16 +467,6 @@
 
     updateExerciseControls();
     loadNextExercise();
-  }
-
-  function toggleFullscreen() {
-    if (!document.fullscreenElement) {
-      document.documentElement.requestFullscreen().catch(err => {
-        debugLog(`Error Fullscreen: ${err.message}`);
-      });
-    } else {
-      document.exitFullscreen();
-    }
   }
 
   // ============================================
@@ -836,12 +825,24 @@
             // If QR has no device context, do not reuse a previous device's entitlement.
             state.linkedDeviceId = null;
             localStorage.removeItem('the_toll_device_id');
+            // Free fallback: QR without device context should remain squat-only immediately.
+            state.subscriptionStatus = 'inactive';
+            state.planTier = 'free';
+            state.trialEndsAt = null;
+            state.trialDaysLeft = 0;
+            state.isPro = false;
           }
-          await refreshPlanByDevice();
           elements.sessionInput.value = sid;
-          stopQRScan();
+
+          // Do not block the QR success UI on network membership checks.
+          // Free plan is squat-only, so apply the local exercise state immediately.
           loadNextExercise();
           updateExerciseControls();
+          stopQRScan();
+
+          refreshPlanByDevice().catch((e) => {
+            debugLog('QR plan refresh failed: ' + (e?.message || e));
+          });
         }, () => {}
       );
     } catch (err) { alert(t('camera_start_failed')); elements.qrReaderContainer.classList.add('hidden'); }
@@ -1599,10 +1600,16 @@
 
     if (elements.recalibrateBtn) {
       elements.recalibrateBtn.onclick = () => {
+        const isSquat = state.exerciseType === 'SQUAT';
         state.pushupBaseline = null;
         state.situpBaseline = null;
         state.calibrationBuffer = [];
         state.isSquatting = false;
+        if (isSquat) {
+          // Re-arm squat startup guidance and brief ready window so the button has visible effect.
+          state._squatReadySpoken = false;
+          state.startTime = Date.now();
+        }
         state._pushupGuideSpoken = false;
         state._pushupReadySpoken = false;
         state._situpReadySpoken = false;
@@ -1623,10 +1630,6 @@
         if(!confirm(t('confirm_cancel_training'))) return;
         cancelSession();
       };
-    }
-
-    if (elements.fullscreenBtn) {
-      elements.fullscreenBtn.onclick = toggleFullscreen;
     }
 
     showScreen('session-screen');
