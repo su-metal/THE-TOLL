@@ -40,7 +40,7 @@
       top: calc(env(safe-area-inset-top, 0px) + 10px);
       right: 10px;
       z-index: 1200;
-      display: inline-flex;
+      display: none !important;
       gap: 6px;
       padding: 4px;
       border: 2px solid #000;
@@ -98,7 +98,7 @@
           <button id="logout-btn" class="text-btn" style="margin-top:15px; font-family:'Roboto Mono'; text-decoration:underline;">LOGOUT</button>
         </div>
         
-        <a href="#" id="auth-reset-link" onclick="forceReset(); return false;" class="text-btn" style="display:block; margin-top: 30px; opacity: 0.5; font-family:'Roboto Mono'; font-size:0.7rem;">System Hard Reset (v2.30)</a>
+        <a href="#" id="auth-reset-link" onclick="forceReset(); return false;" class="text-btn hidden" style="display:block; margin-top: 30px; opacity: 0.5; font-family:'Roboto Mono'; font-size:0.7rem;">System Hard Reset (v2.30)</a>
       </div>
     </div>
 
@@ -142,7 +142,7 @@
         <p class="subtitle" id="session-help-text" style="margin-top: 20px; font-family:'Roboto Mono'; font-size:0.8rem; text-align:center;">Enter the ID shown on your PC</p>
         
         <a href="#" id="session-logout-btn" class="text-btn hidden" style="display:block; text-align:center; margin-top:20px; font-family:'Roboto Mono';">Logout from this account</a>
-        <a href="#" id="session-reset-link" onclick="forceReset(); return false;" class="text-btn" style="display:block; margin-top:10px; opacity: 0.5; text-align:center; font-family:'Roboto Mono'; font-size:0.7rem;">System Hard Reset (v2.30)</a>
+        <a href="#" id="session-reset-link" onclick="forceReset(); return false;" class="text-btn hidden" style="display:block; margin-top:10px; opacity: 0.5; text-align:center; font-family:'Roboto Mono'; font-size:0.7rem;">System Hard Reset (v2.30)</a>
       </div>
 
       <!-- QR Scanner Overlay -->
@@ -227,7 +227,7 @@
         
         <a href="#" id="back-to-session-btn" class="text-btn" style="display:block; margin-bottom: 20px; font-family:'Roboto Mono'; font-weight:bold; color:black; text-decoration:underline;">START ANOTHER SESSION</a>
         
-        <a href="#" id="complete-reset-link" onclick="forceReset(); return false;" class="text-btn" style="opacity: 0.5; font-family:'Roboto Mono'; font-size:0.7rem;">System Hard Reset (v2.30)</a>
+        <a href="#" id="complete-reset-link" onclick="forceReset(); return false;" class="text-btn hidden" style="opacity: 0.5; font-family:'Roboto Mono'; font-size:0.7rem;">System Hard Reset (v2.30)</a>
       </div>
     </div>
         

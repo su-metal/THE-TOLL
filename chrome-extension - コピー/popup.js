@@ -584,17 +584,14 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   async function initializeUiLanguage() {
     try {
-      const data = await chrome.storage.local.get('toll_ui_lang');
-      const saved = data?.toll_ui_lang;
-      if (saved === 'ja' || saved === 'en') {
-        uiLang = saved;
-        return;
-      }
-      const detected = (navigator.language || 'en').toLowerCase().startsWith('ja') ? 'ja' : 'en';
+      const langs = Array.isArray(navigator.languages) ? navigator.languages : [];
+      const firstLocale = (langs[0] || navigator.language || 'en').toLowerCase();
+      const detected = firstLocale.startsWith('ja') ? 'ja' : 'en';
       uiLang = detected;
       await chrome.storage.local.set({ toll_ui_lang: uiLang });
     } catch (_) {
-      uiLang = (navigator.language || 'en').toLowerCase().startsWith('ja') ? 'ja' : 'en';
+      const firstLocale = (navigator.language || 'en').toLowerCase();
+      uiLang = firstLocale.startsWith('ja') ? 'ja' : 'en';
     }
   }
 

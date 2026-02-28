@@ -13,12 +13,11 @@
     "service_worker": "background.js"
   },
   "host_permissions": [
-    "http://*/*",
     "https://*/*"
   ],
   "content_scripts": [
     {
-      "matches": ["http://*/*", "https://*/*"],
+      "matches": ["https://*/*"],
       "js": ["lib/qrcode.min.js", "content.js"],
       "css": ["overlay.css"],
       "run_at": "document_end"
@@ -27,7 +26,7 @@
   "web_accessible_resources": [
     {
       "resources": ["overlay.css", "blocked_adult_sites.json"],
-      "matches": ["http://*/*", "https://*/*"]
+      "matches": ["https://*/*"]
     }
   ],
   "icons": {
