@@ -1,4 +1,4 @@
-const CACHE_NAME = 'the-toll-v12-safe-network';
+const CACHE_NAME = 'the-toll-v15-safe-network';
 const ASSETS = [
   './',
   './index.html',
@@ -49,10 +49,20 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // キャッシュ優先だが、HTMLは常にネットワークを確認（更新検知のため）
-  if (event.request.url.includes('index.html') || event.request.url.endsWith('/')) {
+  // HTML/CSS/JS はネットワーク優先にして、UI更新を確実に反映する
+  if (
+    event.request.url.includes('index.html') ||
+    event.request.url.endsWith('/') ||
+    url.pathname.endsWith('.css') ||
+    url.pathname.endsWith('.js')
+  ) {
     event.respondWith(
       fetch(event.request)
+        .then((response) => {
+          const cloned = response.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, cloned));
+          return response;
+        })
         .catch(() => caches.match(event.request))
     );
     return;

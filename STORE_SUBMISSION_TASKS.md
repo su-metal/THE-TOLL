@@ -221,6 +221,7 @@ Payment card details are processed by Stripe and are not stored directly by THE 
 
 - [ ] 新規インストールから初期設定まで通し確認
 - [x] ロック表示 → QR読取 → 運動 → 解除 → 再ロック確認
+- [ ] 設定画面オープン時にSettings Guard（15回運動→15分解除）が必須であることを確認
 - [x] Freeアカウントで種目選択が表示されないことを確認
 - [x] Proアカウントで種目選択が表示されることを確認
 - [x] ログアウト/再ログイン後のプラン反映を確認

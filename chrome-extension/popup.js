@@ -21,6 +21,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   const billingChangeNote = document.getElementById('billing-change-note');
   const lockOverlay = document.getElementById('lock-overlay');
   const settingsContent = document.getElementById('settings-content');
+  const onboardingScreen = document.getElementById('onboarding-screen');
+  const startOnboardingBtn = document.getElementById('start-onboarding-btn');
   const qrSection = document.getElementById('settings-qr-section');
   const viewOnlyBtn = document.getElementById('view-only-btn');
   const viewOnlyBar = document.getElementById('view-only-bar');
@@ -61,9 +63,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   const SETTINGS_UNLOCK_WINDOW_MIN = 15;
   const SETTINGS_UNLOCK_WINDOW_MS = SETTINGS_UNLOCK_WINDOW_MIN * 60 * 1000;
   const SETTINGS_UNLOCK_EXPIRES_AT_KEY = 'toll_settings_unlock_expires_at';
+  const SETTINGS_ONBOARDING_COMPLETED_KEY = 'toll_settings_onboarding_completed';
   // Temporary switch for QA: false = settings mission OFF, true = ON
-  const SETTINGS_GUARD_ENABLED = false;
+  const SETTINGS_GUARD_ENABLED = true;
   let uiLang = 'en';
+  let isInitialSettingsOnboarding = false;
   const UI_TEXT = {
     en: {
       upgradeLoginNote: 'Sign in to start a free trial (no card required). Upgrade anytime.',
@@ -122,6 +126,15 @@ document.addEventListener('DOMContentLoaded', async () => {
       lockResetReload: 'LOCK RESET - RELOAD TAB TO TEST',
       settingsSaved: 'SETTINGS SAVED',
       settingsMissionOffQa: 'SETTINGS MISSION: OFF (QA MODE)',
+      onboardingEyebrow: 'FIRST TIME SETUP',
+      onboardingTitle: 'Set your lock rules before protection starts.',
+      onboardingDesc: 'Choose blocked sites, pick your unlock preset, and confirm the schedule you want to enforce.',
+      onboardingStepSites: 'Select the sites you want to block.',
+      onboardingStepUnlock: 'Choose how many reps unlock the block.',
+      onboardingStepSchedule: 'Set the schedule, then save one change to activate lock mode.',
+      startInitialSetup: 'START INITIAL SETUP',
+      initialSetupPrompt: 'INITIAL SETUP: CHANGE ANY SETTING TO START LOCK MODE',
+      initialSetupComplete: 'INITIAL SETUP COMPLETE. SETTINGS LOCKED',
       startMission: 'START MISSION',
       proOnly: 'PRO ONLY',
       settingsUnlockedFor: 'SETTINGS UNLOCKED ({minutes}M LEFT)',
@@ -241,6 +254,15 @@ document.addEventListener('DOMContentLoaded', async () => {
       lockResetReload: 'ロックをリセットしました - タブをリロードしてください',
       settingsSaved: '設定を保存しました',
       settingsMissionOffQa: '設定ミッション: OFF（QAモード）',
+      onboardingEyebrow: '初回セットアップ',
+      onboardingTitle: '保護を始める前に、最初のロック設定を決めます。',
+      onboardingDesc: 'ブロックサイト、解除プリセット、スケジュールを先に決めてからロックを開始します。',
+      onboardingStepSites: 'ブロックしたいサイトを選びます。',
+      onboardingStepUnlock: '解除に必要な回数を選びます。',
+      onboardingStepSchedule: 'スケジュールを決めて、1つ設定を保存するとロックが有効になります。',
+      startInitialSetup: '初期設定を開始',
+      initialSetupPrompt: '初期設定中: いずれかの設定を変更するとロックを開始します',
+      initialSetupComplete: '初期設定が完了しました。設定をロックします',
       startMission: 'ミッション開始',
       proOnly: 'PRO専用',
       settingsUnlockedFor: '設定を解除中（残り{minutes}分）',
@@ -724,6 +746,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   function enterViewOnlyMode() {
     isSettingsViewOnly = true;
+    if (onboardingScreen) onboardingScreen.classList.add('hidden');
+    settingsContent.classList.remove('hidden');
     lockOverlay.classList.add('hidden');
     settingsContent.classList.remove('locked');
     setSettingsReadOnly(true);
@@ -736,6 +760,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   function returnToMissionMode() {
     isSettingsViewOnly = false;
     setSettingsReadOnly(false);
+    if (onboardingScreen) onboardingScreen.classList.add('hidden');
+    settingsContent.classList.remove('hidden');
     settingsContent.classList.add('locked');
     lockOverlay.classList.remove('hidden');
     if (viewOnlyBar) viewOnlyBar.classList.add('hidden');
@@ -744,6 +770,54 @@ document.addEventListener('DOMContentLoaded', async () => {
     statusMsg.textContent = t('settingsLocked');
     showSavedStatus();
     chrome.storage.local.remove(SETTINGS_UNLOCK_EXPIRES_AT_KEY).catch(() => {});
+  }
+
+  function showOnboardingScreen() {
+    isInitialSettingsOnboarding = true;
+    isSettingsViewOnly = false;
+    setSettingsReadOnly(false);
+    if (onboardingScreen) onboardingScreen.classList.remove('hidden');
+    settingsContent.classList.add('hidden');
+    settingsContent.classList.remove('locked');
+    lockOverlay.classList.add('hidden');
+    if (viewOnlyBar) viewOnlyBar.classList.add('hidden');
+    if (unlockBtn) unlockBtn.classList.remove('hidden');
+    if (qrSection) qrSection.classList.add('hidden');
+    hideUnlockRemaining();
+    statusMsg.textContent = '';
+  }
+
+  function enterInitialSetupMode() {
+    isInitialSettingsOnboarding = true;
+    isSettingsViewOnly = false;
+    setSettingsReadOnly(false);
+    if (onboardingScreen) onboardingScreen.classList.add('hidden');
+    settingsContent.classList.remove('hidden');
+    settingsContent.classList.remove('locked');
+    lockOverlay.classList.add('hidden');
+    if (viewOnlyBar) viewOnlyBar.classList.add('hidden');
+    if (unlockBtn) unlockBtn.classList.remove('hidden');
+    if (qrSection) qrSection.classList.add('hidden');
+    hideUnlockRemaining();
+    statusMsg.textContent = t('initialSetupPrompt');
+    showSavedStatus(3200);
+  }
+
+  async function completeInitialSettingsOnboarding() {
+    if (!isInitialSettingsOnboarding) return;
+    isInitialSettingsOnboarding = false;
+    await chrome.storage.local.set({ [SETTINGS_ONBOARDING_COMPLETED_KEY]: true });
+    settingsUnlockExpiresAtMs = 0;
+    hideUnlockRemaining();
+    if (unlockBtn) unlockBtn.classList.remove('hidden');
+    if (qrSection) qrSection.classList.add('hidden');
+    statusMsg.textContent = t('initialSetupComplete');
+    showSavedStatus(2600);
+    setTimeout(() => {
+      if (!isSettingsViewOnly) {
+        returnToMissionMode();
+      }
+    }, 150);
   }
 
   function showToast(message, durationMs = 2600, tone = 'info') {
@@ -1770,6 +1844,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   adultBlockToggle.addEventListener('change', async (e) => {
     await chrome.storage.local.set({ adult_block_enabled: e.target.checked });
     showSavedStatus();
+    await completeInitialSettingsOnboarding();
   });
   
   // 1. Unlock preset
@@ -1778,6 +1853,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       input.addEventListener('change', async (e) => {
         if (!e.target.checked) return;
         await selectUnlockPreset(e.target.value);
+        await completeInitialSettingsOnboarding();
       });
     });
   }
@@ -1797,6 +1873,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const p = getPresetById(activeUnlockPresetId);
         statusMsg.textContent = t('presetAppliedNow', { name: p.label, reps: p.reps, minutes: p.graceMin });
         showSavedStatus(2600);
+        await completeInitialSettingsOnboarding();
       }
     });
   }
@@ -2058,7 +2135,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     return days;
   }
 
-  async function persistFreeScheduleMode(mode) {
+  async function persistFreeScheduleMode(mode, { userInitiated = false } = {}) {
     freeScheduleModeValue = mode === 'everyday' ? 'everyday' : 'weekdays';
     const days = applyFreeSchedule(freeScheduleModeValue);
     await chrome.storage.local.set({
@@ -2078,6 +2155,9 @@ document.addEventListener('DOMContentLoaded', async () => {
       });
     }
     showSavedStatus();
+    if (userInitiated) {
+      await completeInitialSettingsOnboarding();
+    }
   }
 
   function renderProPresetTabs() {
@@ -2087,7 +2167,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
-  async function switchProPreset(key) {
+  async function switchProPreset(key, { userInitiated = false } = {}) {
     activeProPresetKey = key === 'b' ? 'b' : 'a';
     renderProPresetTabs();
     const selected = normalizeSchedule(proSchedulePresets[activeProPresetKey]);
@@ -2098,6 +2178,9 @@ document.addEventListener('DOMContentLoaded', async () => {
       lock_schedule: selected,
     });
     showSavedStatus();
+    if (userInitiated) {
+      await completeInitialSettingsOnboarding();
+    }
   }
 
   fillTimeSelectOptions();
@@ -2144,7 +2227,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         btn.disabled = false;
         btn.classList.toggle('active', btn.dataset.freeSchedule === freeScheduleModeValue);
         btn.onclick = async () => {
-          await persistFreeScheduleMode(btn.dataset.freeSchedule);
+          await persistFreeScheduleMode(btn.dataset.freeSchedule, { userInitiated: true });
         };
       });
     }
@@ -2217,6 +2300,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       lock_schedule: current,
     });
     showSavedStatus();
+    await completeInitialSettingsOnboarding();
   }
 
   function showSavedStatus(durationMs = 2000) {
@@ -2335,6 +2419,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         await chrome.storage.local.set({ custom_blocked_sites: customSites });
         renderCustomSites();
         showSavedStatus();
+        await completeInitialSettingsOnboarding();
       });
     });
   }
@@ -2362,6 +2447,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       customInput.value = '';
       renderCustomSites();
       showSavedStatus();
+      await completeInitialSettingsOnboarding();
     }
   });
 
@@ -2383,6 +2469,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     await chrome.storage.local.set({ blocked_sites: activeSites });
     showSavedStatus();
+    await completeInitialSettingsOnboarding();
   }
 
   async function applyPlanRestrictionsAfterAuthChange() {
@@ -2456,7 +2543,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         proScheduleMode.classList.remove('hidden');
         proScheduleMode.querySelectorAll('.mode-btn').forEach((btn) => {
           btn.onclick = async () => {
-            await switchProPreset(btn.dataset.proSchedule);
+            await switchProPreset(btn.dataset.proSchedule, { userInitiated: true });
           };
         });
         renderProPresetTabs();
@@ -2641,6 +2728,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   async function unlockSettings({ persist = true } = {}) {
     isSettingsViewOnly = false;
     setSettingsReadOnly(false);
+    if (onboardingScreen) onboardingScreen.classList.add('hidden');
+    settingsContent.classList.remove('hidden');
     lockOverlay.classList.add('hidden');
     settingsContent.classList.remove('locked');
     if (viewOnlyBar) viewOnlyBar.classList.add('hidden');
@@ -2686,6 +2775,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (viewOnlyBtn) {
     viewOnlyBtn.addEventListener('click', enterViewOnlyMode);
   }
+  if (startOnboardingBtn) {
+    startOnboardingBtn.addEventListener('click', enterInitialSetupMode);
+  }
   if (returnToMissionBtn) {
     returnToMissionBtn.addEventListener('click', returnToMissionMode);
   }
@@ -2708,6 +2800,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     return;
   }
   await clearStoredUnlockExpiry();
+
+  const onboardingData = await chrome.storage.local.get(SETTINGS_ONBOARDING_COMPLETED_KEY);
+  if (!onboardingData?.[SETTINGS_ONBOARDING_COMPLETED_KEY]) {
+    showOnboardingScreen();
+    return;
+  }
 
   // Popup open => start settings unlock mission automatically.
   if (lockOverlay && !lockOverlay.classList.contains('hidden')) {

@@ -81,7 +81,11 @@
       voice_stand_back: 'Stand back. Show us your body.',
       voice_ready_start: 'Ready. Start!',
       voice_stay_still: 'Face forward and hold where your shoulders are visible.',
-      voice_mission_complete: 'Mission Complete!'
+      voice_mission_complete: 'Mission Complete!',
+      complete_title: 'MISSION COMPLETE',
+      complete_subtitle: 'PC UNLOCKED SUCCESSFULLY',
+      complete_reps: 'REPS',
+      complete_seconds: 'SECONDS'
     },
     ja: {
       logged_in_as: 'ログイン中:',
@@ -135,7 +139,7 @@
       status_show_torso: '上半身を映してください',
       status_show_upper_body: '頭と肩を映してください',
       status_stand_ready: '姿勢を整えてください...',
-      status_down: '下げる',
+      status_down: '倒れる',
       status_show_shoulders: '肩を映してください',
       status_calibrating: 'キャリブレーション中...',
       status_go_down: '倒れる',
@@ -144,7 +148,11 @@
       voice_stand_back: '少し離れて全身を映してください。',
       voice_ready_start: '準備OK。スタート！',
       voice_stay_still: '正面を向いて、肩が見える位置で構えてください。',
-      voice_mission_complete: 'ミッション完了！'
+      voice_mission_complete: 'ミッション完了！',
+      complete_title: 'ミッション完了',
+      complete_subtitle: 'PCのロックを解除しました',
+      complete_reps: '回',
+      complete_seconds: '秒'
     }
   };
   const t = (key, vars = {}) => {
@@ -216,15 +224,17 @@
     authForm: document.getElementById('auth-form'),
     userInfo: document.getElementById('user-info'),
     googleLoginBtn: document.getElementById('google-login-btn'),
-    userDisplayEmail: document.getElementById('user-display-email'),
-    subscriptionStatusBadge: document.getElementById('subscription-status-badge'),
-    trialBadge: document.getElementById('trial-badge'),
+    authUserEmail: document.getElementById('auth-user-email'),
+    sessionUserEmail: document.getElementById('session-user-email'),
+    authStatusBadge: document.getElementById('auth-status-badge'),
+    sessionStatusBadge: document.getElementById('session-status-badge'),
+    authTrialBadge: document.getElementById('auth-trial-badge'),
     installBtn: document.getElementById('install-btn'),
     subscribeBtn: document.getElementById('subscribe-btn'),
     manageSubscriptionBtn: document.getElementById('manage-subscription-btn'),
+    sessionManageSubscriptionBtn: document.getElementById('session-manage-subscription-btn'),
     toSessionBtn: document.getElementById('to-session-btn'),
     logoutBtn: document.getElementById('logout-btn'),
-    sessionLogoutBtn: document.getElementById('session-logout-btn'),
 
     sessionScreen: document.getElementById('session-screen'),
     sessionInput: document.getElementById('session-input'),
@@ -234,10 +244,17 @@
     proExerciseSelector: document.getElementById('pro-exercise-selector'),
     exerciseSelect: document.getElementById('exercise-select'),
     resetCycleBtn: document.getElementById('reset-cycle-btn'),
-    cycleDebugInfo: document.getElementById('cycle-debug-info'), // NEW
+    cycleDebugInfo: document.getElementById('cycle-debug-info'),
     qrReaderContainer: document.getElementById('qr-reader-container'),
     closeScanBtn: document.getElementById('close-scan-btn'),
+    qrScanCloseIcon: document.getElementById('qr-scan-close-icon'),
     
+    // Exercise Tabs
+    exerciseTabAuto: document.getElementById('exercise-tab-auto'),
+    exerciseTabSquat: document.getElementById('exercise-tab-squat'),
+    exerciseTabPushup: document.getElementById('exercise-tab-pushup'),
+    exerciseTabSitup: document.getElementById('exercise-tab-situp'),
+
     squatScreen: document.getElementById('squat-screen'),
     camera: document.getElementById('camera'),
     canvas: document.getElementById('pose-canvas'),
@@ -258,6 +275,7 @@
     recalibrateBtn: document.getElementById('recalibrate-btn'),
     hint: document.getElementById('squat-hint'),
     overlayUi: document.querySelector('.overlay-ui'),
+    logoutBtn: document.getElementById('logout-btn'),
     globalLangSwitch: document.querySelector('.global-lang-switch')
   };
 
@@ -279,11 +297,14 @@
     }
   }
   function setManageSubscriptionVisible(visible) {
-    if (!elements.manageSubscriptionBtn) return;
-    elements.manageSubscriptionBtn.classList.toggle('hidden', !visible);
+    if (elements.manageSubscriptionBtn) {
+      elements.manageSubscriptionBtn.classList.toggle('hidden', !visible);
+    }
+    if (elements.sessionManageSubscriptionBtn) {
+      elements.sessionManageSubscriptionBtn.classList.toggle('hidden', !visible);
+    }
   }
-  function setTrialBadge(text) {
-    if (!elements.trialBadge) return;
+  function setTrialBadge(text) { if (!elements.authTrialBadge) return;
     if (!text) {
       elements.trialBadge.classList.add('hidden');
       elements.trialBadge.textContent = '';
@@ -350,10 +371,11 @@
     }
     const canOverrideExercise = hasExerciseOverrideAccess();
     if (elements.nextExerciseDisplay) {
-      elements.nextExerciseDisplay.classList.toggle('hidden', canOverrideExercise || !sessionReady);
+      elements.nextExerciseDisplay.classList.remove('hidden');
     }
     if (elements.proExerciseSelector) {
-      elements.proExerciseSelector.classList.toggle('hidden', !(canOverrideExercise && sessionReady));
+      elements.proExerciseSelector.classList.remove('hidden');
+      elements.proExerciseSelector.classList.toggle('is-disabled', !canOverrideExercise);
     }
     if (elements.exerciseSelect) {
       elements.exerciseSelect.disabled = !canOverrideExercise;
@@ -367,6 +389,44 @@
     }
   }
 
+  function syncExerciseTabs(value) {
+    const tabs = [
+      { el: elements.exerciseTabAuto, val: 'auto' },
+      { el: elements.exerciseTabSquat, val: '0' },
+      { el: elements.exerciseTabPushup, val: '1' },
+      { el: elements.exerciseTabSitup, val: '2' }
+    ];
+
+    const canOverride = hasExerciseOverrideAccess();
+
+    tabs.forEach(tabObj => {
+      const tab = tabObj.el;
+      if (!tab) return;
+      const tabValue = tabObj.val;
+      const isActive = tabValue === 'auto' ? !canOverride : tabValue === String(value);
+      
+      if (isActive) {
+        tab.classList.add('bg-ethereal-gradient', 'text-white', 'shadow-lg');
+        tab.classList.remove('bg-surface-container-low', 'text-on-surface-variant');
+      } else {
+        tab.classList.remove('bg-ethereal-gradient', 'text-white', 'shadow-lg');
+        tab.classList.add('bg-surface-container-low', 'text-on-surface-variant');
+      }
+    });
+  }
+
+  function setNextExerciseCard(label) {
+    if (!elements.nextExerciseDisplay) return;
+    const kicker = document.getElementById('next-exercise-kicker');
+    const value = document.getElementById('next-exercise-value');
+    if (!kicker || !value) {
+      elements.nextExerciseDisplay.textContent = t('exercise_prefix', { exercise: label });
+      return;
+    }
+    kicker.textContent = APP_LANG === 'ja' ? '次の種目' : 'NEXT EXERCISE';
+    value.textContent = `${state.targetCount || getExerciseByType(state.exerciseType)?.defaultCount || 20} ${label}`;
+  }
+
   function applyExerciseIndex(idx) {
     const safeIdx = Math.max(0, Math.min(EXERCISES.length - 1, idx));
     const selected = EXERCISES[safeIdx];
@@ -377,9 +437,7 @@
     const selectedLabel = t(selected.labelKey);
     if (elements.exerciseSelect) elements.exerciseSelect.value = String(safeIdx);
     if (elements.exerciseLabel) elements.exerciseLabel.textContent = selectedLabel;
-    if (elements.nextExerciseDisplay) {
-      elements.nextExerciseDisplay.textContent = t('exercise_prefix', { exercise: selectedLabel });
-    }
+    syncExerciseTabs(safeIdx);
     if (elements.cycleDebugInfo) elements.cycleDebugInfo.textContent = `ID: ${safeIdx}`;
 
     if (elements.hint) {
@@ -397,6 +455,7 @@
     const computed = computeTargetByExerciseAndDuration(selected.type, durationMin);
     if (computed) state.targetCount = computed;
     else state.targetCount = hasExerciseOverrideAccess() ? selected.defaultCount : 10;
+    setNextExerciseCard(selectedLabel);
     // 種目切替時は検出状態をリセット（特に腹筋のキャリブレーション残りを防ぐ）
     state.isSquatting = false;
     state.pushupBaseline = null;
@@ -474,7 +533,7 @@
   // ============================================
   async function updateUserInfo(user) {
     debugLog(`Updating info for: ${user.email}`);
-    elements.userDisplayEmail.textContent = `${t('logged_in_as')} ${user.email}`;
+    const emailText = `${t('logged_in_as')} ${user.email}`; if (elements.authUserEmail) elements.authUserEmail.textContent = emailText; if (elements.sessionUserEmail) elements.sessionUserEmail.textContent = user.email;
     elements.authForm.classList.add('hidden');
     elements.userInfo.classList.remove('hidden');
 
@@ -486,8 +545,8 @@
     elements.toSessionBtn.textContent = t('membership_checking');
     elements.subscribeBtn.classList.add('hidden');
     setManageSubscriptionVisible(false);
-    elements.subscriptionStatusBadge.textContent = t('membership_checking_badge');
-    elements.subscriptionStatusBadge.className = 'status-inactive';
+    if (elements.authStatusBadge) elements.authStatusBadge.textContent = t('membership_checking_badge'); if (elements.sessionStatusBadge) elements.sessionStatusBadge.textContent = t('membership_checking_badge');
+    if (elements.authStatusBadge) elements.authStatusBadge.className = 'status-inactive'; if (elements.sessionStatusBadge) elements.sessionStatusBadge.className = 'status-inactive';
 
     try {
       await state.supabase.auth.getSession();
@@ -508,8 +567,8 @@
 
       if (!profile) {
         debugLog('Profile missing or unreadable: ' + (lastError?.message || 'no row'));
-        elements.subscriptionStatusBadge.textContent = t('membership_verify_failed');
-        elements.subscriptionStatusBadge.className = 'status-inactive';
+        if (elements.authStatusBadge) elements.authStatusBadge.textContent = t('membership_verify_failed'); if (elements.sessionStatusBadge) elements.sessionStatusBadge.textContent = t('membership_verify_failed');
+        if (elements.authStatusBadge) elements.authStatusBadge.className = 'status-inactive'; if (elements.sessionStatusBadge) elements.sessionStatusBadge.className = 'status-inactive';
         setTrialBadge('');
         elements.toSessionBtn.disabled = true;
         elements.toSessionBtn.textContent = t('membership_check_failed');
@@ -555,17 +614,11 @@
       loadNextExercise();
       await syncDeviceLink();
 
-      if (isActive) {
-        elements.subscriptionStatusBadge.textContent = t('membership_active');
-        elements.subscriptionStatusBadge.className = 'status-active';
-        setTrialBadge('');
-      } else if (isTrialActive) {
-        elements.subscriptionStatusBadge.textContent = t('membership_trial');
-        elements.subscriptionStatusBadge.className = 'status-active';
-        setTrialBadge(t('trial_days_left', { days: trialDaysLeft }));
+      if (isActive) { if (elements.authStatusBadge) elements.authStatusBadge.textContent = t('membership_active'); if (elements.sessionStatusBadge) elements.sessionStatusBadge.textContent = 'PRO / ' + t('membership_active'); setTrialBadge('');
+      } else if (isTrialActive) { if (elements.authStatusBadge) elements.authStatusBadge.textContent = t('membership_trial'); if (elements.sessionStatusBadge) elements.sessionStatusBadge.textContent = 'TRIAL / ' + t('membership_trial'); setTrialBadge(t('trial_days_left', { days: trialDaysLeft }));
       } else {
         elements.subscriptionStatusBadge.textContent = t('membership_free');
-        elements.subscriptionStatusBadge.className = 'status-inactive';
+        if (elements.authStatusBadge) elements.authStatusBadge.className = 'status-inactive'; if (elements.sessionStatusBadge) elements.sessionStatusBadge.className = 'status-inactive';
         setTrialBadge('');
       }
 
@@ -594,7 +647,7 @@
       const msg = (e && e.message) ? e.message : String(e);
       debugLog('Profile logic crash: ' + msg);
       elements.subscriptionStatusBadge.textContent = t('membership_error', { reason: msg.slice(0, 18) });
-      elements.subscriptionStatusBadge.className = 'status-inactive';
+      if (elements.authStatusBadge) elements.authStatusBadge.className = 'status-inactive'; if (elements.sessionStatusBadge) elements.sessionStatusBadge.className = 'status-inactive';
       setTrialBadge('');
       elements.toSessionBtn.disabled = true;
       elements.toSessionBtn.textContent = t('membership_check_failed');
@@ -1509,6 +1562,7 @@
       elements.manageSubscriptionBtn.onclick = handleManageSubscription;
     }
     if (elements.toSessionBtn) elements.toSessionBtn.onclick = () => showScreen('session-screen');
+    if (elements.sessionBackBtn) elements.sessionBackBtn.onclick = () => showScreen('auth-screen');
     elements.startBtn.onclick = () => startSession();
     if (elements.sessionInput) {
       elements.sessionInput.oninput = () => {
@@ -1517,6 +1571,7 @@
     }
     elements.scanQrBtn.onclick = () => startQRScan();
     elements.closeScanBtn.onclick = () => stopQRScan();
+    if (elements.qrScanCloseIcon) elements.qrScanCloseIcon.onclick = () => stopQRScan();
     elements.resetCycleBtn.onclick = (e) => {
       e.preventDefault();
       cycleExercise();
@@ -1530,6 +1585,22 @@
         loadNextExercise();
       };
     }
+    document.querySelectorAll('[data-exercise-tab]').forEach((tab) => {
+      tab.onclick = () => {
+        if (!hasExerciseOverrideAccess()) return;
+        const tabValue = tab.dataset.exerciseTab;
+        if (tabValue === 'auto') {
+          localStorage.removeItem(STORAGE_SELECTED_EXERCISE);
+          loadNextExercise();
+          return;
+        }
+        const idx = parseInt(tabValue, 10);
+        if (!Number.isInteger(idx)) return;
+        if (elements.exerciseSelect) elements.exerciseSelect.value = String(idx);
+        localStorage.setItem(STORAGE_SELECTED_EXERCISE, String(idx));
+        loadNextExercise();
+      };
+    });
     elements.unlockBtn.onclick = sendUnlockSignal;
     elements.backToSessionBtn.onclick = (e) => {
       e.preventDefault();

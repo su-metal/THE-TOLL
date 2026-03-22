@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>THE TOLL | Camera HUD</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "tertiary": "#540091",
+              "surface-container-high": "#e7e8ee",
+              "primary-fixed-dim": "#d7baff",
+              "on-tertiary": "#ffffff",
+              "inverse-surface": "#2e3135",
+              "on-primary-container": "#d2b3ff",
+              "surface-container-highest": "#e1e2e8",
+              "surface": "#f8f9ff",
+              "outline-variant": "#cdc2d7",
+              "on-secondary": "#ffffff",
+              "on-primary": "#ffffff",
+              "secondary": "#0055c7",
+              "primary": "#4d009b",
+              "on-tertiary-fixed": "#2c0050",
+              "surface-container": "#eceef3",
+              "outline": "#7c7486",
+              "on-secondary-fixed": "#001945",
+              "on-error-container": "#93000a",
+              "on-background": "#191c20",
+              "on-surface": "#191c20",
+              "tertiary-fixed-dim": "#ddb7ff",
+              "secondary-fixed-dim": "#b0c6ff",
+              "surface-container-lowest": "#ffffff",
+              "on-primary-fixed": "#280056",
+              "error-container": "#ffdad6",
+              "tertiary-container": "#7400c5",
+              "on-error": "#ffffff",
+              "secondary-container": "#146df4",
+              "inverse-on-surface": "#eff0f6",
+              "primary-fixed": "#eddcff",
+              "surface-variant": "#e1e2e8",
+              "inverse-primary": "#d7baff",
+              "secondary-fixed": "#d9e2ff",
+              "error": "#ba1a1a",
+              "on-secondary-fixed-variant": "#00419c",
+              "surface-bright": "#f8f9ff",
+              "surface-tint": "#7a2edb",
+              "on-primary-fixed-variant": "#6100be",
+              "tertiary-fixed": "#f0dbff",
+              "background": "#f8f9ff",
+              "on-tertiary-fixed-variant": "#6900b3",
+              "surface-dim": "#d8dae0",
+              "on-secondary-container": "#fefcff",
+              "on-surface-variant": "#4b4454",
+              "on-tertiary-container": "#d9b0ff",
+              "primary-container": "#6a11cb",
+              "surface-container-low": "#f2f3f9"
+            },
+            fontFamily: {
+              "headline": ["Inter"],
+              "body": ["Inter"],
+              "label": ["Inter"]
+            },
+            borderRadius: {"DEFAULT": "1rem", "lg": "2rem", "xl": "3rem", "full": "9999px"},
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(24px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        .pose-node {
+            box-shadow: 0 0 15px rgba(106, 17, 203, 0.8);
+        }
+        .video-placeholder {
+            background: radial-gradient(circle at center, #1e1b4b 0%, #0f172a 100%);
+        }
+    </style>
+<style>
+        body {
+            min-height: max(884px, 100dvh);
+        }
+    </style>
+</head>
+<body class="bg-surface font-body text-on-surface antialiased overflow-hidden h-screen w-screen">
+<!-- Camera Feed Container -->
+<main class="relative h-screen w-screen video-placeholder overflow-hidden">
+<!-- Background Imagery/Feed Proxy -->
+<div class="absolute inset-0 opacity-40 mix-blend-overlay">
+<img class="h-full w-full object-cover grayscale contrast-125" data-alt="Monochrome image of an athlete in a gym space" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDl4gRA9_P9gR_pS59S_TXP897nl0wKbJ17qbz_6HKFCYA6enrDPhbP37HpaTqz6f-a5DkWCUji1TZkwqzNTKSJLg06t5VDokEl2H3zu9fHZz_fw7DPEj1IRSNq2xG-WeVm2dEYum7iMXuDUX3yv3TM1qmGjZDOH1KdkTULSm5FAazBNXCyixoVN_H40TP0KZdk5pNX2WCEkXH2AXdDz5V92HdP_DxNqjByTRmjMS5eB0YMbqMNBih7TxbZNLhkGYMJl9_tbsnZiF0"/>
+</div>
+<!-- AI Pose Overlay (Skeleton) -->
+<div class="absolute inset-0 z-10 flex items-center justify-center pointer-events-none">
+<svg class="w-full h-full max-w-4xl opacity-80" fill="none" viewbox="0 0 400 600" xmlns="http://www.w3.org/2000/svg">
+<!-- Skeleton Lines -->
+<path d="M200 120 L200 250" stroke="#6a11cb" stroke-width="2"></path> <!-- Spine -->
+<path d="M200 150 L140 180" stroke="#6a11cb" stroke-width="2"></path> <!-- Left Shoulder -->
+<path d="M200 150 L260 180" stroke="#6a11cb" stroke-width="2"></path> <!-- Right Shoulder -->
+<path d="M140 180 L130 240" stroke="#6a11cb" stroke-width="2"></path> <!-- Left Arm -->
+<path d="M260 180 L270 240" stroke="#6a11cb" stroke-width="2"></path> <!-- Right Arm -->
+<path d="M200 250 L160 350" stroke="#2575fc" stroke-width="3"></path> <!-- Left Hip to Knee -->
+<path d="M200 250 L240 350" stroke="#2575fc" stroke-width="3"></path> <!-- Right Hip to Knee -->
+<path d="M160 350 L170 450" stroke="#2575fc" stroke-width="3"></path> <!-- Left Knee to Ankle -->
+<path d="M240 350 L230 450" stroke="#2575fc" stroke-width="3"></path> <!-- Right Knee to Ankle -->
+<!-- Joints (Nodes) -->
+<circle class="pose-node" cx="200" cy="110" fill="white" r="10"></circle> <!-- Head -->
+<circle class="pose-node" cx="200" cy="150" fill="#6a11cb" r="4"></circle> <!-- Neck -->
+<circle class="pose-node" cx="140" cy="180" fill="#6a11cb" r="5"></circle> <!-- L Shoulder -->
+<circle class="pose-node" cx="260" cy="180" fill="#6a11cb" r="5"></circle> <!-- R Shoulder -->
+<circle class="pose-node" cx="130" cy="240" fill="#6a11cb" r="4"></circle> <!-- L Elbow -->
+<circle class="pose-node" cx="270" cy="240" fill="#6a11cb" r="4"></circle> <!-- R Elbow -->
+<circle class="pose-node" cx="200" cy="250" fill="#2575fc" r="6"></circle> <!-- Pelvis -->
+<circle class="pose-node" cx="160" cy="350" fill="#2575fc" r="8"></circle> <!-- L Knee -->
+<circle class="pose-node" cx="240" cy="350" fill="#2575fc" r="8"></circle> <!-- R Knee -->
+<circle class="pose-node" cx="170" cy="450" fill="#2575fc" r="5"></circle> <!-- L Ankle -->
+<circle class="pose-node" cx="230" cy="450" fill="#2575fc" r="5"></circle> <!-- R Ankle -->
+</svg>
+</div>
+<!-- TOP UI BAR -->
+<div class="absolute top-0 left-0 w-full z-20 px-8 py-10 flex justify-between items-start pointer-events-none">
+<!-- Space for top-left -->
+<div class="w-12 h-12"></div>
+<!-- Status Pill -->
+<div class="glass-panel rounded-full px-6 py-2.5 flex items-center gap-3 shadow-xl pointer-events-auto">
+<span class="relative flex h-3 w-3">
+<span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+<span class="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
+</span>
+<span class="text-white font-label text-sm tracking-[0.2em] font-bold">READY</span>
+</div>
+<!-- Exit Button -->
+<button class="glass-panel w-12 h-12 rounded-full flex items-center justify-center text-white hover:bg-white/20 transition-all active:scale-90 pointer-events-auto">
+<span class="material-symbols-outlined text-2xl">close</span>
+</button>
+</div>
+<!-- BOTTOM CONTROLS STACK -->
+<div class="absolute bottom-10 left-1/2 -translate-x-1/2 z-20 w-full px-6 flex flex-col items-center pointer-events-none">
+<!-- HUD ELEMENTS: COUNTER (Moved closer to the card) -->
+<div class="flex flex-col items-center mb-4">
+<span class="text-white/60 font-label tracking-[0.1em] text-xs font-semibold mb-[-10px]">PROGRESS</span>
+<div class="flex items-baseline gap-2">
+<span class="text-9xl md:text-[180px] font-black leading-none tracking-tighter text-white drop-shadow-2xl">
+                        12
+                    </span>
+<span class="text-indigo-400 font-label tracking-[0.2em] text-lg font-black italic">/ 20</span>
+</div>
+</div>
+<!-- HUD ELEMENTS: EXERCISE TYPE -->
+<div class="glass-panel rounded-2xl px-6 py-4 flex items-center gap-4 shadow-2xl backdrop-blur-3xl border border-white/20 w-max pointer-events-auto">
+<div class="bg-gradient-to-br from-primary to-secondary w-12 h-12 rounded-full flex items-center justify-center shadow-lg">
+<span class="material-symbols-outlined text-white text-2xl" style="font-variation-settings: 'FILL' 1">fitness_center</span>
+</div>
+<div class="flex flex-col">
+<span class="text-white/50 font-label text-[10px] tracking-widest font-bold uppercase">Current Exercise</span>
+<span class="text-white font-headline text-2xl font-black tracking-widest uppercase">Squat</span>
+</div>
+</div>
+</div>
+<!-- Focus Frame (Corner Brackets) -->
+<div class="absolute inset-12 border-[1px] border-white/10 rounded-xl pointer-events-none">
+<div class="absolute top-0 left-0 w-8 h-8 border-t-2 border-l-2 border-indigo-500/50 rounded-tl-lg"></div>
+<div class="absolute top-0 right-0 w-8 h-8 border-t-2 border-r-2 border-indigo-500/50 rounded-tr-lg"></div>
+<div class="absolute bottom-0 left-0 w-8 h-8 border-b-2 border-l-2 border-indigo-500/50 rounded-bl-lg"></div>
+<div class="absolute bottom-0 right-0 w-8 h-8 border-b-2 border-r-2 border-indigo-500/50 rounded-br-lg"></div>
+</div>
+<!-- Subtle Gradient Overlay for Depth -->
+<div class="absolute inset-0 bg-gradient-to-t from-[#0f172a] via-transparent to-[#0f172a]/40 pointer-events-none"></div>
+</main>
+</body></html>

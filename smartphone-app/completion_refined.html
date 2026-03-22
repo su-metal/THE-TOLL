@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "tertiary": "#540091",
+              "surface-container-high": "#e7e8ee",
+              "primary-fixed-dim": "#d7baff",
+              "on-tertiary": "#ffffff",
+              "inverse-surface": "#2e3135",
+              "on-primary-container": "#d2b3ff",
+              "surface-container-highest": "#e1e2e8",
+              "surface": "#f8f9ff",
+              "outline-variant": "#cdc2d7",
+              "on-secondary": "#ffffff",
+              "on-primary": "#ffffff",
+              "secondary": "#0055c7",
+              "primary": "#4d009b",
+              "on-tertiary-fixed": "#2c0050",
+              "surface-container": "#eceef3",
+              "outline": "#7c7486",
+              "on-secondary-fixed": "#001945",
+              "on-error-container": "#93000a",
+              "on-background": "#191c20",
+              "on-surface": "#191c20",
+              "tertiary-fixed-dim": "#ddb7ff",
+              "secondary-fixed-dim": "#b0c6ff",
+              "surface-container-lowest": "#ffffff",
+              "on-primary-fixed": "#280056",
+              "error-container": "#ffdad6",
+              "tertiary-container": "#7400c5",
+              "on-error": "#ffffff",
+              "secondary-container": "#146df4",
+              "inverse-on-surface": "#eff0f6",
+              "primary-fixed": "#eddcff",
+              "surface-variant": "#e1e2e8",
+              "inverse-primary": "#d7baff",
+              "secondary-fixed": "#d9e2ff",
+              "error": "#ba1a1a",
+              "on-secondary-fixed-variant": "#00419c",
+              "surface-bright": "#f8f9ff",
+              "surface-tint": "#7a2edb",
+              "on-primary-fixed-variant": "#6100be",
+              "tertiary-fixed": "#f0dbff",
+              "background": "#f8f9ff",
+              "on-tertiary-fixed-variant": "#6900b3",
+              "surface-dim": "#d8dae0",
+              "on-secondary-container": "#fefcff",
+              "on-surface-variant": "#4b4454",
+              "on-tertiary-container": "#d9b0ff",
+              "primary-container": "#6a11cb",
+              "surface-container-low": "#f2f3f9"
+            },
+            fontFamily: {
+              "headline": ["Inter"],
+              "body": ["Inter"],
+              "label": ["Inter"]
+            },
+            borderRadius: {"DEFAULT": "1rem", "lg": "2rem", "xl": "3rem", "full": "9999px"},
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .glass-card {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(24px);
+            border: 1px solid rgba(255, 255, 255, 0.4);
+        }
+        .ethereal-bg {
+            background: radial-gradient(circle at top, #eddcff 0%, #f8f9ff 100%);
+        }
+    </style>
+<style>
+        body {
+            min-height: max(884px, 100dvh);
+        }
+    </style>
+</head>
+<body class="bg-surface font-body text-on-surface min-h-screen flex flex-col items-center ethereal-bg px-6">
+<!-- Top Navigation Shell -->
+<header class="w-full max-w-lg z-50 flex justify-between items-center py-8">
+<div class="text-xl tracking-[0.2em] font-black bg-gradient-to-br from-[#6a11cb] to-[#2575fc] bg-clip-text text-transparent">THE TOLL</div>
+<div class="w-10 h-10 rounded-full bg-surface-container-high flex items-center justify-center overflow-hidden">
+<img alt="User profile circular avatar photo" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAzzFkOJIy1yhCfSedUPX-DZBOW6I-eoRVUeicLBqESBiPK2yK6O9dg-a3j7BMeP4L2a4GzDoGB5azERyRE71oWR5NJjRnYOXPJiXahieL1aIVxJLLF6jdu-2CsplPKHa7hEQmHM8ly5nXOgIR1oxthNR1HsygKLI1SIC20SP4QncL5S7q3qYdPrNHnU2gfi3Ayp1ulrN4TIkI6w6Aswuy3NNDZYoPki15kMBIIJfhtZSl63kjpx9jM6h-zM_f8DgxR2sdZvHk5dnY"/>
+</div>
+</header>
+<!-- Main Content Canvas -->
+<main class="w-full max-w-lg flex flex-col items-center text-center flex-1 justify-center space-y-6 py-6">
+<!-- Status Indicator -->
+<div class="relative flex flex-col items-center">
+<div class="absolute inset-0 bg-primary-container blur-[64px] opacity-20 rounded-full"></div>
+<div class="relative w-32 h-32 rounded-full bg-white flex items-center justify-center shadow-2xl">
+<span class="material-symbols-outlined text-6xl text-indigo-600" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+</div>
+</div>
+<!-- Success Message -->
+<div class="space-y-4 flex flex-col items-center">
+<h1 class="text-sm font-bold tracking-[0.4em] text-indigo-600 uppercase">MISSION COMPLETE</h1>
+<p class="text-4xl font-black tracking-tight text-on-surface">Access Granted</p>
+</div>
+<!-- Stats Card (Glassmorphism Bento Style) -->
+<div class="glass-card w-full rounded-lg p-8 grid grid-cols-2 divide-x divide-outline-variant/30 shadow-[0_24px_48px_rgba(25,28,32,0.06)]">
+<div class="flex flex-col items-center justify-center space-y-2">
+<span class="text-[10px] font-medium tracking-[0.2em] text-outline uppercase">TOTAL REPS</span>
+<span class="text-3xl font-black text-on-surface">20</span>
+</div>
+<div class="flex flex-col items-center justify-center space-y-2">
+<span class="text-[10px] font-medium tracking-[0.2em] text-outline uppercase">TOTAL TIME</span>
+<span class="text-3xl font-black text-on-surface">01:25</span>
+</div>
+</div><button class="w-full py-5 rounded-full bg-gradient-to-br from-[#6a11cb] to-[#2575fc] text-white font-black tracking-[0.2em] text-sm shadow-[0_20px_40px_rgba(106,17,203,0.3)] hover:shadow-[0_25px_50px_rgba(106,17,203,0.4)] hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center space-x-3 mt-8">
+<span class="material-symbols-outlined text-xl">lock_open</span>
+<span>UNLOCK PC</span>
+</button>
+<!-- Contextual Message -->
+<p class="text-on-surface-variant max-w-[280px] leading-relaxed text-sm text-center">
+            Your physical toll has been collected. Focus protocol is now active.
+        </p>
+<!-- Action Button -->
+<button class="w-full py-4 rounded-full bg-transparent border border-outline-variant/30 text-on-surface-variant font-bold tracking-widest text-xs hover:bg-surface-container-low active:scale-95 transition-all flex items-center justify-center space-x-2 mt-4">
+<span>BACK TO HOME</span>
+<span class="material-symbols-outlined text-base">arrow_forward</span>
+</button>
+</main>
+<!-- Decorative Background Elements -->
+<div class="fixed -bottom-24 -left-24 w-96 h-96 bg-primary-container/5 rounded-full blur-[100px] -z-10"></div>
+<div class="fixed top-1/2 -right-24 w-64 h-64 bg-secondary-container/10 rounded-full blur-[80px] -z-10"></div>
+</body></html>
